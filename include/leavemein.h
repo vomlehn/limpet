@@ -3,6 +3,7 @@
 
 #ifdef LEAVEMEIN
 #include <stdio.h>          // FIXME: debugging, remove
+#include <unistd.h>
 
 #include <leavemein-linux.h>
 
@@ -35,12 +36,13 @@ struct __leavemein_common {
  * priorities. If necessary, these can be overridden  by defining one or
  * both before #including this file:
  */
+// FIXME: verify these values
 #ifndef __LEAVEMEIN_SETUP_PRI
-#define __LEAVEMEIN_SETUP_PRI   199
+#define __LEAVEMEIN_SETUP_PRI   148
 #endif
 
 #ifndef __LEAVEMEIN_RUN_PRI
-#define __LEAVEMEIN_RUN_PRI     198
+#define __LEAVEMEIN_RUN_PRI     149
 #endif
 
 /*
@@ -103,11 +105,13 @@ static void __leavemein_add_test(struct __leavemein_common *test) {
  * This is the function that runs all the tests in the file including this
  * header file.
  */
-void __Leavemein_run(void) __attribute((constructor(__LEAVEMEIN_RUN_PRI)));
-void __leavemein_run(void) {
+static void __leavemein_run(void) \
+    __attribute((constructor(__LEAVEMEIN_RUN_PRI)));
+static void __leavemein_run(void) {
     struct __leavemein_common *p;
 
-    printf("start test execution");
+printf("start run\n");
+    /* printf("start test execution"); */
     for (p = __leavemein_list; p != NULL; p = p->next) {
         printf("executing %s\n", p->name);
         __leavemein_run_one(p);

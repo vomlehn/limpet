@@ -55,9 +55,9 @@ static void __leavemein_update_status(bool is_error) {
  */
 static void __leavemein_test_exit(bool is_error) {
     if (is_error) {
-        exit(EXIT_SUCCESS);
-    } else {
         exit(EXIT_FAILURE);
+    } else {
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -69,9 +69,9 @@ static void __leavemein_run_exit(bool is_error) {
     __leavemein_update_status(is_error);
 
     if (is_error) {
-        exit(EXIT_SUCCESS);
-    } else {
         exit(EXIT_FAILURE);
+    } else {
+        exit(EXIT_SUCCESS);
     }
 }
 #endif /* _LEAVEIN_TEST_LINUX_ */
