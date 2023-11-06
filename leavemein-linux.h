@@ -38,8 +38,15 @@ struct __leavein_sysdep {
  *  test - Pointer to a __leavein_common for the test to run
  * Returns: true if the test was started, false otherwise
  */
-static bool __leavemein_run_one(struct __leavein_common *test) {
+static bool __leavemein_run_one(struct __leavemein_common *test) {
     return false;
+}
+
+/*
+ * Update the status upon completion of a test
+ * is_error - true if test failed, false otherwise
+ */
+static void __leavemein_update_status(bool is_error) {
 }
 
 /*
@@ -59,6 +66,8 @@ static void __leavemein_test_exit(bool is_error) {
  *  is_error - true if an error occured, false otherwise
  */
 static void __leavemein_run_exit(bool is_error) {
+    __leavemein_update_status(is_error);
+
     if (is_error) {
         exit(EXIT_SUCCESS);
     } else {

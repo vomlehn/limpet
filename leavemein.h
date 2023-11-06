@@ -84,18 +84,19 @@ struct __leavemein_common {
 /*
  * This is the linked list of all tests by the per-test constructors
  */
-struct __leavemein_common *__leavemein_list;
+struct __leavemein_common *__leavemein_list __attribute((common));
+
+/*
+ * Prototypes for system-dependent common functions
+ */
+static void __leavemein_update_status(bool is_error);
 
 /*
  * Called by per-test constructor to add the test to the test list
  */
 static void __leavemein_add_test(struct __leavemein_common *test) {
-    test->next = NULL;
-    __leavemein_list->next = __leavemein_list;
+    test->next = __leavemein_list;
     __leavemein_list = test;
-}
-
-static void __leavemein_update_status(unsigned total, unsigned errors) {
 }
 
 /*
