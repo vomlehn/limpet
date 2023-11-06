@@ -1,0 +1,4 @@
+Leavemein is a set of header files that make it easy to embed tests
+in C and C++ code and control their execution. The flag LEAVEMEIN is
+defined on the compiler command line to enable the tests. When it is
+not defined, no tests will be defined or run.
