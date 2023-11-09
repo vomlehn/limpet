@@ -1,25 +1,14 @@
-#ifndef _LEAVEIN_
-#define _LEAVEIN_
+/*
+ * Code allowing embedding of tests within C/C++ code
+ */
+#ifndef _LEAVEIN_H_
+#define _LEAVEIN_H_
 
 #ifdef LEAVEMEIN
 #include <stdio.h>          // FIXME: debugging, remove
 #include <unistd.h>
 
 #include <leavemein-linux.h>
-
-/*
- * Definitions common to all implementations
- *  name - Name of the test
- *  func - Function to execute the test
- *  next - Next item on the list of tests, or NULL at the end.
- *  sysdep - System-dependent information
- */
-struct __leavemein_common {
-    struct __leavemein_common   *next;
-    const char *                name;
-    void                        (*func)(void);
-    struct __leavemein_sysdep   *sysdep;
-};
 
 /*
  * These definitions are intended for use by the user code
@@ -64,15 +53,15 @@ struct __leavemein_common {
         __attribute((constructor(__LEAVEMEIN_SETUP_PRI)));  \
     static void testname(void);                             \
     static void __leavemein_test_ ## testname(void) {       \
-        static struct __leavemein_common common = {         \
-            .next = NULL,                               \
-            .name = #testname,                          \
-            .func = testname,                           \
-            .sysdep = {0},                              \
-        };                                              \
-        printf("Test %s\n", #testname);                 \
+        static struct __leavemein_test common = {           \
+            .next = NULL,                                   \
+            .name = #testname,                              \
+            .func = testname,                               \
+            .sysdep = __LEAVEMEIN_SYSDEP_INIT,              \
+        };                                                  \
+        printf("Test %s\n", #testname);                     \
         __leavemein_add_test(&common);                      \
-    }                                                   \
+    }                                                       \
     void testname(void)
 
 #define leavemein_assert_eq(a, b)    \
@@ -86,7 +75,7 @@ struct __leavemein_common {
 /*
  * This is the linked list of all tests by the per-test constructors
  */
-struct __leavemein_common *__leavemein_list __attribute((common));
+struct __leavemein_test *__leavemein_list __attribute((common));
 
 /*
  * Prototypes for system-dependent common functions
@@ -96,7 +85,7 @@ static void __leavemein_update_status(bool is_error);
 /*
  * Called by per-test constructor to add the test to the test list
  */
-static void __leavemein_add_test(struct __leavemein_common *test) {
+static void __leavemein_add_test(struct __leavemein_test *test) {
     test->next = __leavemein_list;
     __leavemein_list = test;
 }
@@ -108,15 +97,19 @@ static void __leavemein_add_test(struct __leavemein_common *test) {
 static void __leavemein_run(void) \
     __attribute((constructor(__LEAVEMEIN_RUN_PRI)));
 static void __leavemein_run(void) {
-    struct __leavemein_common *p;
+    struct __leavemein_test *p;
+    struct __leavemein_params params;
+
+    __Leavemein_parse_params(&params);
 
 printf("start run\n");
     /* printf("start test execution"); */
     for (p = __leavemein_list; p != NULL; p = p->next) {
+        
         printf("executing %s\n", p->name);
         __leavemein_run_one(p);
     }
     __leavemein_run_exit(false);
 }
 #endif /* LEAVEMEIN */
-#endif /* _LEAVEIN_ */
+#endif /* _LEAVEIN_H_ */
