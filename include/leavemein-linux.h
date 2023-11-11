@@ -8,20 +8,24 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <pty.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 
 /*
  * Value to use for __leavemein_sysdep initiatization
  */
-#define __LEAVEMEIN_SYSDEP_INIT         {   \
-        .log_fd = 0,                            \
-        .test_fd = 0,                           \
+#define __LEAVEMEIN_SYSDEP_INIT         {       \
+        .log_fd = -1,                           \
+        .raw_pty = -1,                          \
+        .tty_pty = -1,                          \
         .bad_errno = 0,                         \
     }
+
 /*
  * System-dependent per-test information.
  * log_fd - file descriptor for the log file.
@@ -30,11 +34,14 @@
  */
 struct __leavemein_sysdep {
     int     log_fd;
-    int     test_fd;
+    int     raw_pty;
+    int     tty_pty;
     int     bad_errno;
 };
 
 #include <leavemein-sysdep.h>
+
+#define ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
 
 /*
  * Environment variables available to configure executation are:
@@ -46,6 +53,25 @@ struct __leavemein_sysdep {
  */
 #define __LEAVEMEIN_MAX_JOBS  "LEAVEMEIN_MAX_JOBS"
 #define __LEAVEMEIN_RUNLIST   "LEAVEMEIN_RUNLIST"
+#define __LEAVEMEIN_TIMEOUT   "LEAVEMEIN_TIMEOUT"
+
+/*
+ * List of all environment variables to eliminate before running the test
+ */
+static const char *__leavemein_envvars[] = {
+    __LEAVEMEIN_MAX_JOBS,
+    __LEAVEMEIN_RUNLIST,
+    __LEAVEMEIN_TIMEOUT,
+};
+
+/*
+ * Define the initialized for a structure holding a mutex and the mutext struct itself
+ */
+#define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
+
+struct __leavemein_mutex {
+    pthread_mutex_t mutex;
+};   
 
 /*
  * print an error message like printf()
@@ -63,32 +89,13 @@ static void __leavemein_fail(const char *fmt, ...) {
     va_end(ap);
 }
 
-#define __leavemein_fail_errno(fmt, ...) {      do {        \
-        __Leavemein_fail(fmt ## ": %s", strerror(error));   \
+#define __leavemein_fail_errno_arg(err, fmt, ...)    do {        \
+        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
     } while (0)
 
-static bool __leavemein_test_setup(struct __leavemein_test *test) {
-    test->sysdep.log_fd = open("/tmp/leavemein.log",
-        O_TMPFILE | O_CREAT | O_EXCL | O_RDWR,
-        S_IRUSR | S_IWUSR);
-    if (test->sysdep.log_fd == -1) {
-        test->sysdep.bad_errno = errno;
-        return false;
-    }
-
-    return true;
-}
-
-/*
- * Run one test
- *  test - Pointer to a __leavemein_params for the test to run
- * Returns: true if the test was started, false otherwise
- */
-static bool __leavemein_run_one(struct __leavemein_test *test) {
-    __leavemein_test_setup(test);
-
-    return false;
-}
+#define __leavemein_fail_errno(fmt, ...)    do {        \
+        __leavemein_fail_errno_arg(errno, fmt, ##__VA_ARGS__); \
+    } while (0)
 
 /*
  * Update the status upon completion of a test
@@ -131,7 +138,7 @@ static void __leavemein_run_exit(bool is_error) {
  *
  * Returns: true if successful, false otherwise.
  */
-static bool __leavemein_add_test(struct __leavemein_params *params,
+static bool __leavemein_add_testname(struct __leavemein_params *params,
     const char *start, const char *end) {
     size_t testname_size;
     char *testname;
@@ -191,7 +198,7 @@ static bool parse_runlist(struct __leavemein_params *params) {
                 return false;
             }
 
-            if (!__leavemein_add_test(params, start, colon)) {
+            if (!__leavemein_add_testname(params, start, colon)) {
                 return false;
             }
 
@@ -201,7 +208,7 @@ static bool parse_runlist(struct __leavemein_params *params) {
             size_t name_len;
 
             name_len = strlen(start);
-            if (!__leavemein_add_test(params, start, start + name_len)) {
+            if (!__leavemein_add_testname(params, start, start + name_len)) {
                 return false;
             }
         }
@@ -216,8 +223,9 @@ static bool parse_runlist(struct __leavemein_params *params) {
  *
  * Returns: true on success, false otherwise.
  */
-static bool __Leavemein_parse_params(struct __leavemein_params *params) {
+static bool __leavemein_parse_params(struct __leavemein_params *params) {
     const char *max_jobs_env;
+    const char *timeout;
 
     memset(params, 0, sizeof(*params));
 
@@ -233,6 +241,138 @@ static bool __Leavemein_parse_params(struct __leavemein_params *params) {
     }
 
     if (!parse_runlist(params)) {
+        return false;
+    }
+
+    timeout = getenv(__LEAVEMEIN_TIMEOUT);
+    if (timeout == NULL) {
+        params->timeout = __LEAVEMEIN_DEFAULT_TIMEOUT;
+    } else {
+        char *endptr;
+
+        params->timeout = strtof(timeout, &endptr);
+
+        if (*timeout == '\0' || *endptr != '\0') {
+            __leavemein_fail("Bad timeout value\n", timeout);
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
+    struct termios termios;
+    struct winsize winsize;
+    int rc;
+
+    rc = tcgetattr(0, &termios);
+    if (rc == -1) {
+        __leavemein_fail_errno("Unable to get terminal characteristics");
+        return false;
+    }
+
+    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
+    if (rc == -1) {
+        __leavemein_fail_errno("Unable to create pty");
+        return false;
+    }
+
+    return true;
+}
+
+static bool __leavemein_test_setup(struct __leavemein_test *test) {
+    size_t i;
+
+    test->sysdep.log_fd = open("/tmp/leavemein.log",
+        O_TMPFILE | O_CREAT | O_EXCL | O_RDWR,
+        S_IRUSR | S_IWUSR);
+    if (test->sysdep.log_fd == -1) {
+        __leavemein_fail_errno("Unable to make log file");
+        test->sysdep.bad_errno = errno;
+        return false;
+    }
+
+    if (!__leavemein_make_pty(&test->sysdep)) {
+        return false;
+    }
+
+    /*
+     * Remove things in the environment specific to leavmein
+     */
+    for (i = 0; i < ARRAY_SIZE(__leavemein_envvars); i++) {
+        const char *envvar;
+        envvar = __leavemein_envvars[i];
+
+        if (unsetenv(envvar) == -1) {
+            __leavemein_fail("Unable to unset environment variable %s\n",
+                envvar);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* FIXME: remove this
+int pthread_mutex_lock(pthread_mutex_t *mutex);
+int pthread_mutex_trylock(pthread_mutex_t *mutex);
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
+
+int pthread_mutex_destroy(pthread_mutex_t *mutex);
+int pthread_mutex_init(pthread_mutex_t * mutex,
+       const pthread_mutexattr_t * attr);
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static pthread_mutex_t foo_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void foo()
+{
+    pthread_mutex_lock(&foo_mutex);
+    pthread_mutex_unlock(&foo_mutex);
+}
+*/
+
+/*
+ * Run one test
+ *  test - Pointer to a __leavemein_params for the test to run
+ * Returns: true if the test was started, false otherwise
+ */
+static bool __leavemein_run_one(struct __leavemein_test *test) {
+    __leavemein_test_setup(test);
+
+    return false;
+}
+
+static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_init(&mutex->mutex, NULL);
+    if (rc != 0) {
+        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
+        return false;
+    }
+
+    return true;
+}
+
+static bool __leavemein_lock(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_lock(&mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
+        return false;
+    }
+
+    return true;
+}
+
+static bool __leavemein_unlock(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_unlock(&mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
         return false;
     }
 

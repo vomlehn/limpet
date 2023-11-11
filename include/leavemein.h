@@ -5,7 +5,6 @@
 #define _LEAVEIN_H_
 
 #ifdef LEAVEMEIN
-#include <stdio.h>          // FIXME: debugging, remove
 #include <unistd.h>
 
 #include <leavemein-linux.h>
@@ -73,9 +72,14 @@
  */
 
 /*
- * This is the linked list of all tests by the per-test constructors
+ * __leavemein_list - The linked list of all tests by the per-test constructors
+ * __leavemein_list_mutex - Mutex protecting __Leavemein_list
+ * __leavemein_list_mutex_inited - indicator of whether __leavemein_list_mutex has been
+ *      initialized
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
+struct __leavemein_mutex __leavemein_list_mutex __attribute((common));
+bool __leavemein_list_mutex_inited __attribute((common));
 
 /*
  * Prototypes for system-dependent common functions
@@ -85,14 +89,30 @@ static void __leavemein_update_status(bool is_error);
 /*
  * Called by per-test constructor to add the test to the test list
  */
-static void __leavemein_add_test(struct __leavemein_test *test) {
+static bool __leavemein_add_test(struct __leavemein_test *test) {
+    if (!__leavemein_mutex_init(&__leavemein_list_mutex)) {
+        return false;
+    }
+
+    if (!__leavemein_lock(&__leavemein_list_mutex)) {
+        return false;
+    }
+
     test->next = __leavemein_list;
     __leavemein_list = test;
+
+    if (!__leavemein_unlock(&__leavemein_list_mutex)) {
+        return false;
+    }
+
+    return true;
 }
 
 /*
  * This is the function that runs all the tests in the file including this
- * header file.
+ * header file. There will actually be one of these in each file #including
+ * leavemein.h, but since they are identical, any of them can be run. Only
+ * one of them will be run because the first one exits the process.
  */
 static void __leavemein_run(void) \
     __attribute((constructor(__LEAVEMEIN_RUN_PRI)));
@@ -100,7 +120,7 @@ static void __leavemein_run(void) {
     struct __leavemein_test *p;
     struct __leavemein_params params;
 
-    __Leavemein_parse_params(&params);
+    __leavemein_parse_params(&params);
 
 printf("start run\n");
     /* printf("start test execution"); */
