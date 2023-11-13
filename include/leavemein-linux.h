@@ -5,6 +5,7 @@
 #ifndef _LEAVEIN_TEST_LINUX_H_
 #define _LEAVEIN_TEST_LINUX_H_
 
+#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -13,6 +14,7 @@
 #include <pty.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
@@ -268,18 +270,24 @@ static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
         __leavemein_fail_errno("Unable to get terminal characteristics");
     }
 
+    rc = ioctl(0, TIOCGWINSZ, &winsize);
+    if (rc == -1) {
+        __leavemein_fail_errno("Unable to get windows size");
+    }
+printf("winsize %dx%d\n", winsize.ws_row, winsize.ws_col);
+
     rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
     if (rc == -1) {
         __leavemein_fail_errno("Unable to create pty");
     }
+printf("set winsize\n");
 
     return true;
 }
 
 static bool __leavemein_test_setup(struct __leavemein_test *test) {
-    test->sysdep.log_fd = open("/tmp/leavemein.log",
-        O_TMPFILE | O_CREAT | O_RDWR,
-        S_IRUSR | S_IWUSR);
+    test->sysdep.log_fd = open("/tmp",
+        O_TMPFILE | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (test->sysdep.log_fd == -1) {
         __leavemein_fail_errno("Unable to make log file");
     }
