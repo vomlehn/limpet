@@ -54,17 +54,20 @@
     static void __leavemein_test_ ## testname(void) {       \
         static struct __leavemein_test common = {           \
             .next = NULL,                                   \
+            .done = NULL,                                   \
             .name = #testname,                              \
             .func = testname,                               \
             .sysdep = __LEAVEMEIN_SYSDEP_INIT,              \
         };                                                  \
         printf("Test %s\n", #testname);                     \
-        __leavemein_add_test(&common);                      \
+        __leavemein_enqueue_test(&common);                  \
     }                                                       \
     void testname(void)
 
 #define leavemein_assert_eq(a, b)    \
-    do { if ((a) != (b)) __leavemein_test_exit(true); } while (0)
+    do { if ((a) != (b)) __leavemein_exit(true); } while (0)
+#define leavemein_assert_ne(a, b)    \
+    do { if ((a) != (b)) __leavemein_exit(true); } while (0)
     
 /*
  * These definitions are intended for internal use by the leavemein code
@@ -72,14 +75,18 @@
  */
 
 /*
- * __leavemein_list - The linked list of all tests by the per-test constructors
- * __leavemein_list_mutex - Mutex protecting __Leavemein_list
- * __leavemein_list_mutex_inited - indicator of whether __leavemein_list_mutex has been
- *      initialized
+ * __leavemein_list - The linked list of all tests by the per-test constructors. Tests
+ *      are added during the test discovery phase by single-threaded code and removed
+ *      during the text execution phase. We're generally multi-threaded then, but
+ *      only one single thread function removes tests. So, no mutual exclusion needed.
+ * __leavemein_donelist - Linked list of completed tests. This is called from
+ *      multi-threaded code, so it has to use mutual exclusion.
+ * __leavemein_donelist_cond - Conditional variable protecting __leavemein_donelist
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
-struct __leavemein_mutex __leavemein_list_mutex __attribute((common));
-bool __leavemein_list_mutex_inited __attribute((common));
+struct __leavemein_test *__leavemein_donelist __attribute((common));
+struct __leavemein_mutex __leavemein_donelist_mutex __attribute((common));
+struct __leavemein_cond __leavemein_donelist_cond __attribute((common));
 
 /*
  * Prototypes for system-dependent common functions
@@ -89,23 +96,69 @@ static void __leavemein_update_status(bool is_error);
 /*
  * Called by per-test constructor to add the test to the test list
  */
-static bool __leavemein_add_test(struct __leavemein_test *test) {
-    if (!__leavemein_mutex_init(&__leavemein_list_mutex)) {
-        return false;
-    }
-
-    if (!__leavemein_lock(&__leavemein_list_mutex)) {
-        return false;
-    }
-
+static void __leavemein_enqueue_test(struct __leavemein_test *test) {
     test->next = __leavemein_list;
     __leavemein_list = test;
+}
 
-    if (!__leavemein_unlock(&__leavemein_list_mutex)) {
-        return false;
+/*
+decrement_count()
+{
+    pthread_mutex_lock(&count_lock);
+    while (count == 0)
+        pthread_cond_wait(&count_nonzero, &count_lock);
+    count = count - 1;
+    pthread_mutex_unlock(&count_lock);
+}
+
+increment_count()
+{
+    pthread_mutex_lock(&count_lock);
+    if (count == 0)
+        pthread_cond_signal(&count_nonzero);
+    count = count + 1;
+    pthread_mutex_unlock(&count_lock);
+}
+*/
+
+/*
+ * Pull one test off the done list. Only call this when there is at least one pending
+ * test
+ */
+static void __leavemein_enqueue_done(struct __leavemein_test *test) {
+    __leavemein_lock(&__leavemein_donelist_mutex);
+
+    test->done = __leavemein_donelist;
+    __leavemein_donelist = test;
+
+    __leavemein_cond_signal(&__leavemein_donelist_cond);
+    __leavemein_unlock(&__leavemein_donelist_mutex);
+}
+
+
+/*
+ * Pull one test off the done list. Only call this when there is at least one pending
+ * test
+ */
+static struct __leavemein_test * __leavemein_dequeue_done(void) {
+    __leavemein_test *test;
+
+    __leavemein_lock(&__leavemein_donelist_mutex);
+
+    while (__leavemein_donelist == NULL) {
+        __leavemein_cond_wait(&__leavemein_donelist_cond, &__leavemein_donelist_mutex);
     }
 
-    return true;
+    test = __leavemein_donelist;
+    __leavemein_unlock(&__leavemein_donelist_mutex);
+    
+    return test;
+}
+
+static void __leavemein_report(struct __leavemein_test *test) {
+    printf("%s finished\n", test->name);
+    __leavemein_dump_log(test);
+    __leavemein_print_status(test);
 }
 
 /*
@@ -119,17 +172,37 @@ static void __leavemein_run(void) \
 static void __leavemein_run(void) {
     struct __leavemein_test *p;
     struct __leavemein_params params;
+    unsigned pending = 0;
+    unsigned count;
+    unsigned i;
 
+    __leavemein_mutex_init(&__leavemein_donelist_mutex);
+    __leavemein_cond_init(&__leavemein_donelist_cond);
     __leavemein_parse_params(&params);
 
 printf("start run\n");
     /* printf("start test execution"); */
     for (p = __leavemein_list; p != NULL; p = p->next) {
+        count += 1;
+        if (params.max_jobs != 0 && pending == params.max_jobs) {
+            __leavemein_test *test;
+
+            test = __leavemein_dequeue_done();
+            __leavemein_report(test);
+            pending -= 1;
+        }
         
-        printf("executing %s\n", p->name);
-        __leavemein_run_one(p);
+        printf("starting %s\n", p->name);
+        __leavemein_start_one(&params, p);
+        pending += 1;
     }
-    __leavemein_run_exit(false);
+
+    for (i = 0; i < count; i++) {
+        p = __leavemein_dequeue_done();
+        __leavemein_report(p);
+    }
+
+    __leavemein_exit(false);
 }
 #endif /* LEAVEMEIN */
 #endif /* _LEAVEIN_H_ */

@@ -27,6 +27,8 @@ struct __leavemein_params {
 
 /*
  * Per-test information. This part is common to all implementations
+ *  next - Pointer to next test to run
+ *  done - Pointer to next completed test
  *  name - Name of the test
  *  func - Function to execute the test
  *  next - Next item on the list of tests, or NULL at the end.
@@ -34,8 +36,12 @@ struct __leavemein_params {
  */
 struct __leavemein_test {
     struct __leavemein_test     *next;
+    struct __leavemein_test     *done;
     const char *                name;
     void                        (*func)(void);
     struct __leavemein_sysdep   sysdep;
 };
+
+static void __leavemein_enqueue_done(struct __leavemein_test *test);
+static struct __leavemein_test * __leavemein_dequeue_done(void);
 #endif /* __LEAVEMEIN_SYSDEP_H_ */

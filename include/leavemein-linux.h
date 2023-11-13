@@ -5,6 +5,8 @@
 #ifndef _LEAVEIN_TEST_LINUX_H_
 #define _LEAVEIN_TEST_LINUX_H_
 
+#include <sys/syscall.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -23,7 +25,9 @@
         .log_fd = -1,                           \
         .raw_pty = -1,                          \
         .tty_pty = -1,                          \
-        .bad_errno = 0,                         \
+        .pid = -1,                              \
+        .thread = 0,                            \
+        .exit_status = 0,                       \
     }
 
 /*
@@ -33,10 +37,12 @@
  * bad_errno - If we fail and have an errno value, it will be stored here.
  */
 struct __leavemein_sysdep {
-    int     log_fd;
-    int     raw_pty;
-    int     tty_pty;
-    int     bad_errno;
+    int         log_fd;
+    int         raw_pty;
+    int         tty_pty;
+    pid_t       pid;
+    pthread_t   thread;
+    int         exit_status;
 };
 
 #include <leavemein-sysdep.h>
@@ -65,36 +71,44 @@ static const char *__leavemein_envvars[] = {
 };
 
 /*
- * Define the initialized for a structure holding a mutex and the mutext struct itself
+ * Define initializatoin for a structure holding a mutex and the mutex struct itself
  */
 #define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
 
 struct __leavemein_mutex {
     pthread_mutex_t mutex;
-};   
+};
+
+/*
+ * Define initialize for a struct with a conditional variable and a mutext
+ */
+#define __LEAVEMEIN_COND_INIT   { .cond = PTHREAD_COND_INITIALIZER, \
+                                    .mutex = PTHREAD_MUTEX_INITIALIZER, }
+
+struct __leavemein_cond {
+    pthread_cond_t  cond;
+};
 
 /*
  * print an error message like printf()
  */
+static void __leavemein_fail(const char *fmt, ...) __attribute((noreturn));
 static void __leavemein_fail(const char *fmt, ...) {
     va_list ap;
-    int rc;
 
     va_start(ap, fmt);  
-    rc = vfprintf(stderr, fmt, ap);
-    if (rc < 0) {
-        /* Unable to print the error message, give up */
-        exit(EXIT_FAILURE);
-    }
+    vfprintf(stderr, fmt, ap);
     va_end(ap);
+
+    exit(EXIT_FAILURE);
 }
 
-#define __leavemein_fail_errno_arg(err, fmt, ...)    do {        \
+#define __leavemein_fail_with(err, fmt, ...)    do {        \
         __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
     } while (0)
 
 #define __leavemein_fail_errno(fmt, ...)    do {        \
-        __leavemein_fail_errno_arg(errno, fmt, ##__VA_ARGS__); \
+        __leavemein_fail_with(errno, fmt, ##__VA_ARGS__); \
     } while (0)
 
 /*
@@ -102,32 +116,6 @@ static void __leavemein_fail(const char *fmt, ...) {
  * is_error - true if test failed, false otherwise
  */
 static void __leavemein_update_status(bool is_error) {
-}
-
-/*
- * Function called by tests to terminate execution
- *  is_error - true if an error occured, false otherwise
- */
-static void __leavemein_test_exit(bool is_error) {
-    if (is_error) {
-        exit(EXIT_FAILURE);
-    } else {
-        exit(EXIT_SUCCESS);
-    }
-}
-
-/*
- * Function called by tests to terminate execution
- *  is_error - true if an error occured, false otherwise
- */
-static void __leavemein_run_exit(bool is_error) {
-    __leavemein_update_status(is_error);
-
-    if (is_error) {
-        exit(EXIT_FAILURE);
-    } else {
-        exit(EXIT_SUCCESS);
-    }
 }
 
 /*
@@ -158,7 +146,6 @@ static bool __leavemein_add_testname(struct __leavemein_params *params,
     params->runlist = (char **)realloc(params->runlist, new_runlist_size);
     if (params->runlist == NULL) {
         __leavemein_fail("Unable to realloc %zu bytes\n", new_runlist_size);
-        return false;
     }
 
     params->runlist[params->n_runlist] = testname;
@@ -184,7 +171,6 @@ static bool parse_runlist(struct __leavemein_params *params) {
         params->runlist = (char **)malloc(0);
         if (params->runlist == NULL) {
             __leavemein_fail("Out of memory allocating runlist\n");
-            return false;
         }
 
         start = runlist_env;
@@ -195,7 +181,6 @@ static bool parse_runlist(struct __leavemein_params *params) {
             if (start == colon) {
                 __leavemein_fail("Zero length test name invalid in %s\n",
                     __LEAVEMEIN_RUNLIST);
-                return false;
             }
 
             if (!__leavemein_add_testname(params, start, colon)) {
@@ -226,6 +211,7 @@ static bool parse_runlist(struct __leavemein_params *params) {
 static bool __leavemein_parse_params(struct __leavemein_params *params) {
     const char *max_jobs_env;
     const char *timeout;
+    size_t i;
 
     memset(params, 0, sizeof(*params));
 
@@ -236,7 +222,6 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
         if (*max_jobs_env == '\0' || *endptr != '\0') {
             __leavemein_fail("Invalid value specified for %s\n",
                 __LEAVEMEIN_MAX_JOBS);
-            return false;
         }
     }
 
@@ -254,46 +239,7 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
 
         if (*timeout == '\0' || *endptr != '\0') {
             __leavemein_fail("Bad timeout value\n", timeout);
-            return false;
         }
-    }
-    return true;
-}
-
-static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
-    struct termios termios;
-    struct winsize winsize;
-    int rc;
-
-    rc = tcgetattr(0, &termios);
-    if (rc == -1) {
-        __leavemein_fail_errno("Unable to get terminal characteristics");
-        return false;
-    }
-
-    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
-    if (rc == -1) {
-        __leavemein_fail_errno("Unable to create pty");
-        return false;
-    }
-
-    return true;
-}
-
-static bool __leavemein_test_setup(struct __leavemein_test *test) {
-    size_t i;
-
-    test->sysdep.log_fd = open("/tmp/leavemein.log",
-        O_TMPFILE | O_CREAT | O_EXCL | O_RDWR,
-        S_IRUSR | S_IWUSR);
-    if (test->sysdep.log_fd == -1) {
-        __leavemein_fail_errno("Unable to make log file");
-        test->sysdep.bad_errno = errno;
-        return false;
-    }
-
-    if (!__leavemein_make_pty(&test->sysdep)) {
-        return false;
     }
 
     /*
@@ -306,8 +252,40 @@ static bool __leavemein_test_setup(struct __leavemein_test *test) {
         if (unsetenv(envvar) == -1) {
             __leavemein_fail("Unable to unset environment variable %s\n",
                 envvar);
-            return false;
         }
+    }
+
+    return true;
+}
+
+static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
+    struct termios termios;
+    struct winsize winsize;
+    int rc;
+
+    rc = tcgetattr(0, &termios);
+    if (rc == -1) {
+        __leavemein_fail_errno("Unable to get terminal characteristics");
+    }
+
+    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
+    if (rc == -1) {
+        __leavemein_fail_errno("Unable to create pty");
+    }
+
+    return true;
+}
+
+static bool __leavemein_test_setup(struct __leavemein_test *test) {
+    test->sysdep.log_fd = open("/tmp/leavemein.log",
+        O_TMPFILE | O_CREAT | O_RDWR,
+        S_IRUSR | S_IWUSR);
+    if (test->sysdep.log_fd == -1) {
+        __leavemein_fail_errno("Unable to make log file");
+    }
+
+    if (!__leavemein_make_pty(&test->sysdep)) {
+        return false;
     }
 
     return true;
@@ -332,15 +310,69 @@ void foo()
 }
 */
 
+static void*__leavemein_run_one(void *arg) {
+    struct __leavemein_test *test = (struct __leavemein_test *)arg;
+    __leavemein_test_setup(test);
+
+    test->sysdep.pid = fork();
+    switch (test->sysdep.pid) {
+    case -1:
+        __leavemein_fail_errno("Fork failed");
+        break;
+
+    case 0:
+        (*test->func)();
+        exit(EXIT_SUCCESS);
+        break;
+
+    default:
+        break;
+    }
+
+// FIXME: check this return value
+    return test;
+}
+
 /*
  * Run one test
  *  test - Pointer to a __leavemein_params for the test to run
  * Returns: true if the test was started, false otherwise
  */
-static bool __leavemein_run_one(struct __leavemein_test *test) {
-    __leavemein_test_setup(test);
+static bool __leavemein_start_one(struct __leavemein_params * params,
+    struct __leavemein_test *test) {
+    struct timeval timeout;
+    fd_set rfds;
+    int nfds;
+    int pid_fd;
+    int rc;
 
-    return false;
+    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one, test);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to create thread");
+    }
+
+    timeout.tv_sec = (time_t)params->timeout;
+    timeout.tv_usec = (suseconds_t)((params->timeout - timeout.tv_sec) * 1000000);
+
+    /*
+     * Get a file descriptor for this pid so we can use select() to wait for it to
+     * exit
+     */
+    pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
+    nfds = pid_fd + 1;
+
+    do {
+        FD_ZERO(&rfds);
+        FD_SET(pid_fd, &rfds);
+        rc = select(nfds, &rfds, NULL, NULL, &timeout);
+        if (rc == -1) {
+            __leavemein_fail_errno("Select failed");
+        }
+    } while (rc != 0 && !FD_ISSET(pid_fd, &rfds));
+
+    __leavemein_enqueue_done(test);
+
+    return true;
 }
 
 static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
@@ -348,8 +380,7 @@ static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
 
     rc = pthread_mutex_init(&mutex->mutex, NULL);
     if (rc != 0) {
-        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
-        return false;
+        __leavemein_fail_with(rc, "Failed to initialize mutex");
     }
 
     return true;
@@ -360,8 +391,7 @@ static bool __leavemein_lock(struct __leavemein_mutex *mutex) {
 
     rc = pthread_mutex_lock(&mutex->mutex);
     if (rc != 0) {
-        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
-        return false;
+        __leavemein_fail_with(rc, "Failed to lock mutex");
     }
 
     return true;
@@ -372,10 +402,99 @@ static bool __leavemein_unlock(struct __leavemein_mutex *mutex) {
 
     rc = pthread_mutex_unlock(&mutex->mutex);
     if (rc != 0) {
-        __leavemein_fail_errno_arg(rc, "Failed to lock mutex");
-        return false;
+        __leavemein_fail_with(rc, "Failed to unlock mutex");
     }
 
     return true;
 }
+
+static bool __leavemein_cond_init(struct __leavemein_cond *cond) {
+    int rc;
+
+    rc = pthread_cond_init(&cond->cond, NULL);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to initialize conditional variable");
+    }
+
+    return true;
+}
+
+static bool __leavemein_cond_signal(struct __leavemein_cond *cond) {
+    int rc;
+
+    rc = pthread_cond_signal(&cond->cond);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to signal conditional variable");
+    }
+
+    return true;
+}
+
+static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
+    struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_cond_wait(&cond->cond, &mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to wait conditional variable");
+    }
+
+    return true;
+}
+    
+
+static bool __leavemein_dump_log(struct __leavemein_test *test) {
+    char buf[4096];
+    ssize_t zrc = 0;
+
+    for (zrc = read(test->sysdep.log_fd, buf, sizeof(buf)); zrc > 0;
+        zrc = read(test->sysdep.log_fd, buf, sizeof(buf))) {
+        zrc = fwrite(buf, zrc, sizeof(buf[0]), stdout);
+        if (zrc < 0) {
+            __leavemein_fail_with((int)zrc, "Log dump failed in write");
+        }
+    }
+
+    if (zrc != 0) {
+        __leavemein_fail_with((int)zrc, "Log dump failed in read");
+    }
+
+    return true;
+}
+
+static void __leavemein_print_status(__leavemein_test *test) {
+    int status = test->sysdep.exit_status;
+
+__leavemein_fail("finish print_status");
+// FIXME: finish this
+    if (WIFEXITED(status)) {
+        int exit_status;
+        bool is_error;
+
+        printf("Test %s ", test->name);
+
+        exit_status = WEXITSTATUS(status);
+        is_error = (exit_status != 0);
+        printf("exit code %d: %s\n", exit_status, is_error ? "FAILURE" : "SUCCESS");
+        __leavemein_update_status(is_error);
+    } else if (WIFSIGNALED(status)) {
+        printf("signal %d%s: %s\n", WTERMSIG(status),
+            WCOREDUMP(status) ? " (core dumped)" : "", "FAILURE");
+        __leavemein_update_status(true);
+    } else if (WIFSTOPPED(status)) {
+        printf("stopped, signal %d: %s\n", WSTOPSIG(status), "FAILURE");
+        __leavemein_update_status(true);
+    } else if (WIFCONTINUED(status)) {
+        printf("continued: %s\n", "FAILURE");
+        __leavemein_update_status(true);
+    } else {
+        printf("unknown reason: %s\n", "FAILURE");
+        __leavemein_update_status(true);
+    }
+}   
+
+static void __leavemein_exit(bool is_error) {
+    exit(is_error ? EXIT_FAILURE : EXIT_SUCCESS);
+}
+
 #endif /* _LEAVEIN_TEST_LINUX_H_ */
