@@ -350,16 +350,13 @@ static bool copy_file(int in_fd, int out_fd) {
     char buf[4096];
     ssize_t zrc = 0;
 
-printf("copy_file(%d, %d)\n", in_fd, out_fd);
     for (zrc = read(in_fd, buf, sizeof(buf)); zrc > 0;
         zrc = read(in_fd, buf, sizeof(buf))) {
-printf("Read %zd bytes from %d writing to %d\n", zrc, in_fd, out_fd);
         zrc = write(out_fd, buf, zrc);
         if (zrc < 0) {
             return false;
         }
     }
-printf("copy_file(%d, %d) done\n", in_fd, out_fd);
 
     if (zrc != 0) {
         return false;
@@ -369,15 +366,12 @@ printf("copy_file(%d, %d) done\n", in_fd, out_fd);
 }
 
 static void __leavemein_log_output(struct __leavemein_test *test) {
-printf("Copying from test output\n");
     if (!copy_file(test->sysdep.raw_pty, test->sysdep.log_fd)) {
         __leavemein_fail_errno("Copy to log file failed");
     }
-printf("Done copying from test output\n");
 }
 
 static void __leavemein_dump_log(struct __leavemein_test *test) {
-printf("Dumping log for %s\n", test->name);
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
         __leavemein_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
@@ -385,7 +379,6 @@ printf("Dumping log for %s\n", test->name);
     if (!copy_file(test->sysdep.log_fd, 1)) {
         __leavemein_fail_errno("Log dump failed");
     }
-printf("Log dumped\n");
 }
 
 static void *__leavemein_run_one(void *arg) {
@@ -527,8 +520,6 @@ static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
 }
 
 static void __leavemein_print_status(__leavemein_test *test) {
-printf("Printing status at %p\n", test);
-fflush(stdout);
     int status = test->sysdep.exit_status;
 
     if (WIFEXITED(status)) {
@@ -537,20 +528,21 @@ fflush(stdout);
 
         exit_status = WEXITSTATUS(status);
         is_error = (exit_status != 0);
-        printf("exit code %d: %s\n", exit_status, is_error ? "FAILURE" : "SUCCESS");
+        __leavemein_printf("exit code %d: %s", exit_status,
+            is_error ? "FAILURE" : "SUCCESS");
         __leavemein_update_status(is_error);
     } else if (WIFSIGNALED(status)) {
-        printf("signal %d%s: %s\n", WTERMSIG(status),
+        __leavemein_printf("signal %d%s: %s", WTERMSIG(status),
             WCOREDUMP(status) ? " (core dumped)" : "", "FAILURE");
         __leavemein_update_status(true);
     } else if (WIFSTOPPED(status)) {
-        printf("stopped, signal %d: %s\n", WSTOPSIG(status), "FAILURE");
+        __leavemein_printf("stopped, signal %d: %s", WSTOPSIG(status), "FAILURE");
         __leavemein_update_status(true);
     } else if (WIFCONTINUED(status)) {
-        printf("continued: %s\n", "FAILURE");
+        __leavemein_printf("continued: %s\n", "FAILURE");
         __leavemein_update_status(true);
     } else {
-        printf("unknown reason: %s\n", "FAILURE");
+        __leavemein_printf("unknown reason: %s", "FAILURE");
         __leavemein_update_status(true);
     }
 }   

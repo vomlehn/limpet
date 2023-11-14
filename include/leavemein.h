@@ -97,7 +97,6 @@ static void __leavemein_update_status(bool is_error);
  */
 static void __leavemein_enqueue_test(struct __leavemein_test *test) {
     test->next = __leavemein_list;
-    printf("Enqueuing test %s\n", test->name);
     __leavemein_list = test;
 }
 
@@ -150,6 +149,7 @@ static struct __leavemein_test * __leavemein_dequeue_done(void) {
     }
 
     test = __leavemein_donelist;
+    __leavemein_donelist = test->done;
     __leavemein_unlock(&__leavemein_donelist_mutex);
     
     return test;
@@ -181,7 +181,6 @@ static void __leavemein_run(void) {
     __leavemein_cond_init(&__leavemein_donelist_cond);
     __leavemein_parse_params(&params);
 
-printf("start run\n");
     /* printf("start test execution"); */
     for (p = __leavemein_list; p != NULL; p = p->next) {
         count += 1;
@@ -193,7 +192,6 @@ printf("start run\n");
             pending -= 1;
         }
         
-        printf("Starting test %s\n", p->name);
         __leavemein_start_one(&params, p);
         pending += 1;
     }
