@@ -111,8 +111,6 @@ static void __leavemein_printf(const char *fmt, ...) {
     va_start(ap, fmt);  
     vfprintf(stderr, fmt, ap);
     va_end(ap);
-
-    exit(EXIT_FAILURE);
 }
 
 #define __leavemein_fail_with(err, fmt, ...)    do {        \
@@ -529,9 +527,10 @@ static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
 }
 
 static void __leavemein_print_status(__leavemein_test *test) {
+printf("Printing status at %p\n", test);
+fflush(stdout);
     int status = test->sysdep.exit_status;
 
-printf("Printing status\n");
     if (WIFEXITED(status)) {
         int exit_status;
         bool is_error;
