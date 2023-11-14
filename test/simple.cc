@@ -15,12 +15,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef LEAVEMEIN
 LEAVEMEIN_TEST(simple_good) {
-    write(1, "good\n", 5);
+    write(1, "Running simple_good\n", 5);
     leavemein_assert_eq(0, 0);
 }
 
 LEAVEMEIN_TEST(simple_bad) {
-    write(1, "bad\n", 4);
+    write(1, "Running simple_bad\n", 4);
     leavemein_assert_eq(0, 1);
 }
 

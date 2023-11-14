@@ -105,6 +105,16 @@ static void __leavemein_fail(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
+static void __leavemein_printf(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    exit(EXIT_FAILURE);
+}
+
 #define __leavemein_fail_with(err, fmt, ...)    do {        \
         __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
     } while (0)
@@ -274,20 +284,27 @@ static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
     if (rc == -1) {
         __leavemein_fail_errno("Unable to get windows size");
     }
-printf("winsize %dx%d\n", winsize.ws_row, winsize.ws_col);
 
     rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
     if (rc == -1) {
         __leavemein_fail_errno("Unable to create pty");
     }
-printf("set winsize\n");
 
     return true;
 }
 
-static bool __leavemein_test_setup(struct __leavemein_test *test) {
-    test->sysdep.log_fd = open("/tmp",
-        O_TMPFILE | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+static bool __leavemein_thread_setup(struct __leavemein_test *test) {
+    static const char tmpfile_name_template[] = "/tmp/logfileXXXXXX";
+    char tmpfile_name[sizeof(tmpfile_name_template)];
+
+    test->sysdep.log_fd = open(tmpfile_name_template,
+        O_TMPFILE | O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+
+    if (test->sysdep.log_fd == -1 && errno == EINVAL) {
+        strncpy(tmpfile_name, tmpfile_name_template, sizeof(tmpfile_name));
+        test->sysdep.log_fd = mkstemp(tmpfile_name);
+    }
+
     if (test->sysdep.log_fd == -1) {
         __leavemein_fail_errno("Unable to make log file");
     }
@@ -299,28 +316,87 @@ static bool __leavemein_test_setup(struct __leavemein_test *test) {
     return true;
 }
 
-/* FIXME: remove this
-int pthread_mutex_lock(pthread_mutex_t *mutex);
-int pthread_mutex_trylock(pthread_mutex_t *mutex);
-int pthread_mutex_unlock(pthread_mutex_t *mutex);
+/*
+ * Set up the new test process
+ */
+static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
+    if (dup2(sysdep->tty_pty, 0) == -1) {
+        __leavemein_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
+    }
+    if (dup2(0, 1) == -1) {
+        __leavemein_fail_errno("dup2(%d, %d)", 0, 1);
+    }
+    if (dup2(0, 2) == -1) {
+        __leavemein_fail_errno("dup2(%d, %d)", 0, 2);
+    }
 
-int pthread_mutex_destroy(pthread_mutex_t *mutex);
-int pthread_mutex_init(pthread_mutex_t * mutex,
-       const pthread_mutexattr_t * attr);
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static pthread_mutex_t foo_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void foo()
-{
-    pthread_mutex_lock(&foo_mutex);
-    pthread_mutex_unlock(&foo_mutex);
+    if (close(sysdep->tty_pty) == -1) {
+        __leavemein_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
+    }
+    if (close(sysdep->raw_pty) == -1) {
+        __leavemein_fail_errno("close(raw_pty %d)", sysdep->raw_pty);
+    }
+    if (close(sysdep->log_fd) == -1) {
+        __leavemein_fail_errno("close(raw_pty %d)", sysdep->log_fd);
+    }
 }
-*/
+    
+/*
+ * Copy from one file descriptor to another
+ * in_fd - Input file descriptor
+ * out_fd - Output file descriptor
+ *
+ * Returns: true on success, false on failure
+ */
+static bool copy_file(int in_fd, int out_fd) {
+    char buf[4096];
+    ssize_t zrc = 0;
 
-static void*__leavemein_run_one(void *arg) {
+printf("copy_file(%d, %d)\n", in_fd, out_fd);
+    for (zrc = read(in_fd, buf, sizeof(buf)); zrc > 0;
+        zrc = read(in_fd, buf, sizeof(buf))) {
+printf("Read %zd bytes from %d writing to %d\n", zrc, in_fd, out_fd);
+        zrc = write(out_fd, buf, zrc);
+        if (zrc < 0) {
+            return false;
+        }
+    }
+printf("copy_file(%d, %d) done\n", in_fd, out_fd);
+
+    if (zrc != 0) {
+        return false;
+    }
+
+    return true;
+}
+
+static void __leavemein_log_output(struct __leavemein_test *test) {
+printf("Copying from test output\n");
+    if (!copy_file(test->sysdep.raw_pty, test->sysdep.log_fd)) {
+        __leavemein_fail_errno("Copy to log file failed");
+    }
+printf("Done copying from test output\n");
+}
+
+static void __leavemein_dump_log(struct __leavemein_test *test) {
+printf("Dumping log for %s\n", test->name);
+    if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
+        __leavemein_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
+    }
+
+    if (!copy_file(test->sysdep.log_fd, 1)) {
+        __leavemein_fail_errno("Log dump failed");
+    }
+printf("Log dumped\n");
+}
+
+static void *__leavemein_run_one(void *arg) {
     struct __leavemein_test *test = (struct __leavemein_test *)arg;
-    __leavemein_test_setup(test);
+    __leavemein_thread_setup(test);
+
+    if (fflush(stdout) == -1) {
+        __leavemein_fail_errno("fflush(stdout) failed");
+    }
 
     test->sysdep.pid = fork();
     switch (test->sysdep.pid) {
@@ -329,11 +405,13 @@ static void*__leavemein_run_one(void *arg) {
         break;
 
     case 0:
+        __leavemein_setup_one(&test->sysdep);
         (*test->func)();
         exit(EXIT_SUCCESS);
         break;
 
     default:
+        __leavemein_log_output(test);
         break;
     }
 
@@ -449,37 +527,14 @@ static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
 
     return true;
 }
-    
-
-static bool __leavemein_dump_log(struct __leavemein_test *test) {
-    char buf[4096];
-    ssize_t zrc = 0;
-
-    for (zrc = read(test->sysdep.log_fd, buf, sizeof(buf)); zrc > 0;
-        zrc = read(test->sysdep.log_fd, buf, sizeof(buf))) {
-        zrc = fwrite(buf, zrc, sizeof(buf[0]), stdout);
-        if (zrc < 0) {
-            __leavemein_fail_with((int)zrc, "Log dump failed in write");
-        }
-    }
-
-    if (zrc != 0) {
-        __leavemein_fail_with((int)zrc, "Log dump failed in read");
-    }
-
-    return true;
-}
 
 static void __leavemein_print_status(__leavemein_test *test) {
     int status = test->sysdep.exit_status;
 
-__leavemein_fail("finish print_status");
-// FIXME: finish this
+printf("Printing status\n");
     if (WIFEXITED(status)) {
         int exit_status;
         bool is_error;
-
-        printf("Test %s ", test->name);
 
         exit_status = WEXITSTATUS(status);
         is_error = (exit_status != 0);

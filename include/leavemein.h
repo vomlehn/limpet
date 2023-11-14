@@ -59,7 +59,6 @@
             .func = testname,                               \
             .sysdep = __LEAVEMEIN_SYSDEP_INIT,              \
         };                                                  \
-        printf("Test %s\n", #testname);                     \
         __leavemein_enqueue_test(&common);                  \
     }                                                       \
     void testname(void)
@@ -98,6 +97,7 @@ static void __leavemein_update_status(bool is_error);
  */
 static void __leavemein_enqueue_test(struct __leavemein_test *test) {
     test->next = __leavemein_list;
+    printf("Enqueuing test %s\n", test->name);
     __leavemein_list = test;
 }
 
@@ -156,9 +156,10 @@ static struct __leavemein_test * __leavemein_dequeue_done(void) {
 }
 
 static void __leavemein_report(struct __leavemein_test *test) {
-    printf("%s finished\n", test->name);
     __leavemein_dump_log(test);
+    __leavemein_printf("Test complete: %s ", test->name);
     __leavemein_print_status(test);
+    __leavemein_printf("\n");
 }
 
 /*
@@ -192,7 +193,7 @@ printf("start run\n");
             pending -= 1;
         }
         
-        printf("starting %s\n", p->name);
+        printf("Starting test %s\n", p->name);
         __leavemein_start_one(&params, p);
         pending += 1;
     }
@@ -202,6 +203,7 @@ printf("start run\n");
         __leavemein_report(p);
     }
 
+    printf("Ran %u tests\n", count);
     __leavemein_exit(false);
 }
 #endif /* LEAVEMEIN */
