@@ -16,13 +16,11 @@ int main(int argc, char *argv[]) {
 #ifdef LEAVEMEIN
 LEAVEMEIN_TEST(simple_good) {
     printf("Running simple_good\n");
-    printf("Isatty %d\n", isatty(1));
     leavemein_assert_eq(0, 0);
 }
 
 LEAVEMEIN_TEST(simple_bad) {
     printf("Running simple_bad\n");
-    printf("Isatty %d\n", isatty(1));
     leavemein_assert_eq(0, 1);
 }
 
