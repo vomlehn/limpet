@@ -118,7 +118,10 @@ static void __leavemein_statistics_inc(unsigned *item) {
 }
 
 static void __leavemein_inc_started(void) {
-    __leavemein_statistics_inc(&__leavemein_started);
+    __leavemein_mutex_lock(&__leavemein_statistics_mutex);
+    __leavemein_started++;
+    __leavemein_cond_signal(&__leavemein_statistics_cond);
+    __leavemein_mutex_unlock(&__leavemein_statistics_mutex);
 }
 
 static void __leavemein_inc_passed(void) {
@@ -137,7 +140,6 @@ static void __leavemein_wait_pending(unsigned pending) {
     __leavemein_mutex_lock(&__leavemein_statistics_mutex);
 
     while (__leavemein_started - __leavemein_total > pending) {
-printf("started %u total %u started - total %u pending %u\n", __leavemein_started, __leavemein_total, __leavemein_started - __leavemein_total, pending);
         __leavemein_cond_wait(&__leavemein_statistics_cond,
             &__leavemein_statistics_mutex);
     }
@@ -180,7 +182,6 @@ static struct __leavemein_test * __leavemein_dequeue_done(void) {
     test = __leavemein_donelist;
 
     if (test != NULL) {
-printf("Tests done: %s\n", test->name);
         __leavemein_donelist = test->done;
     }
     
@@ -209,7 +210,12 @@ static bool __leavemein_skip(const char *name) {
 
 static void __leavemein_report(struct __leavemein_test *test, const char *sep) {
     printf("%s", sep);
-    __leavemein_dump_log(test);
+    __leavemein_printf("> Log for %s\n", test->name);
+
+    if (__leavemein_dump_log(test) == 0) {
+        __leavemein_printf("<empty log>\n");
+    }
+
     __leavemein_printf("> Test complete: %s ", test->name);
     __leavemein_print_status(test);
     __leavemein_printf("\n");

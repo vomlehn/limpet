@@ -337,41 +337,53 @@ static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
  * in_fd - Input file descriptor
  * out_fd - Output file descriptor
  *
- * Returns: true on success, false on failure
+ * Returns: The number of characters written or -1 on error.
  */
-static bool copy_file(int in_fd, int out_fd) {
+static ssize_t copy_file(int in_fd, int out_fd) {
     char buf[4096];
     ssize_t zrc = 0;
+    ssize_t total = 0;
 
     for (zrc = read(in_fd, buf, sizeof(buf)); zrc > 0;
         zrc = read(in_fd, buf, sizeof(buf))) {
         zrc = write(out_fd, buf, zrc);
         if (zrc < 0) {
-            return false;
+            return -1;
         }
+        total += zrc;
     }
 
     if (zrc != 0) {
-        return false;
+        return -1;
     }
 
-    return true;
+    return total;
 }
 
 static void __leavemein_log_output(struct __leavemein_test *test) {
-    if (!copy_file(test->sysdep.raw_pty, test->sysdep.log_fd)) {
+    if (copy_file(test->sysdep.raw_pty, test->sysdep.log_fd) == -1) {
         __leavemein_fail_errno("Copy to log file failed");
     }
 }
 
-static void __leavemein_dump_log(struct __leavemein_test *test) {
+/*
+ * This dumps the log file to standard out.
+ *
+ * Returns true if there was something to print, false otherwise
+ */
+static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
+    ssize_t total;
+
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
         __leavemein_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
 
-    if (!copy_file(test->sysdep.log_fd, 1)) {
+    total = copy_file(test->sysdep.log_fd, 1);
+    if (total == -1) {
         __leavemein_fail_errno("Log dump failed");
     }
+
+    return total;
 }
 
 static void *__leavemein_run_one(void *arg) {
@@ -425,8 +437,8 @@ static bool __leavemein_start_one(struct __leavemein_params * params,
     timeout.tv_usec = (suseconds_t)((params->timeout - timeout.tv_sec) * 1000000);
 
     /*
-     * Get a file descriptor for this pid so we can use select() to wait for it to
-     * exit
+     * Get a file descriptor for this pid so we can use select() to wait for it
+     * to exit
      */
     pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
     nfds = pid_fd + 1;
@@ -439,6 +451,11 @@ static bool __leavemein_start_one(struct __leavemein_params * params,
             __leavemein_fail_errno("Select failed");
         }
     } while (rc != 0 && !FD_ISSET(pid_fd, &rfds));
+
+    rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
+    if (rc == -1) {
+        __leavemein_fail_errno("waitpid failed");
+    }
 
     __leavemein_enqueue_done(test);
 
