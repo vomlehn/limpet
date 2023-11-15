@@ -7,8 +7,12 @@ CPPFLAGS += -DLEAVEMEIN
 
 .PHONY: test
 test: simple two-files
-	./simple
-	./two-files
+	@sep=""; for test in ./simple ./two-files; do \
+		printf "$$sep"; \
+        echo "$$test"; \
+		$$test; \
+		sep="\n"; \
+	done
 
 simple: simple.o include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -o simple simple.o $(LDFLAGS)
