@@ -122,13 +122,6 @@ static void __leavemein_printf(const char *fmt, ...) {
     } while (0)
 
 /*
- * Update the status upon completion of a test
- * is_error - true if test failed, false otherwise
- */
-static void __leavemein_update_status(bool is_error) {
-}
-
-/*
  * Add a test name to the run list
  * start - pointer to the beginning of the test name
  * end - pointer one past the end of the test name
@@ -140,7 +133,7 @@ static bool __leavemein_add_testname(struct __leavemein_params *params,
     const char *start, const char *end) {
     size_t testname_size;
     char *testname;
-    size_t new_runlist_size;
+    size_t new_skiplist_size;
 
     testname_size = start - end + 1;        /* string plus terminator NUL */
     testname = (char *)malloc(testname_size);
@@ -152,38 +145,38 @@ static bool __leavemein_add_testname(struct __leavemein_params *params,
 
     strncpy(testname, start, testname_size);
 
-    new_runlist_size = sizeof(params->runlist[0]) * (params->n_runlist);
-    params->runlist = (char **)realloc(params->runlist, new_runlist_size);
-    if (params->runlist == NULL) {
-        __leavemein_fail("Unable to realloc %zu bytes\n", new_runlist_size);
+    new_skiplist_size = sizeof(params->skiplist[0]) * (params->n_skiplist);
+    params->skiplist = (char **)realloc(params->skiplist, new_skiplist_size);
+    if (params->skiplist == NULL) {
+        __leavemein_fail("Unable to realloc %zu bytes\n", new_skiplist_size);
     }
 
-    params->runlist[params->n_runlist] = testname;
-    params->n_runlist += 1;
+    params->skiplist[params->n_skiplist] = testname;
+    params->n_skiplist += 1;
     return true;
 }
 
 /*
- * Parse the runlist, if any
+ * Parse the skiplist, if any
  * params - Pointer to the configuration structure
  *
  * Returns: true on success, false otherwise
  */
-static bool parse_runlist(struct __leavemein_params *params) {
-    const char *runlist_env;
+static bool parse_skiplist(struct __leavemein_params *params) {
+    const char *skiplist_env;
 
-    runlist_env = getenv(__LEAVEMEIN_RUNLIST);
+    skiplist_env = getenv(__LEAVEMEIN_RUNLIST);
 
-    if (runlist_env != NULL) {
+    if (skiplist_env != NULL) {
         const char *start;
         const char *colon;
 
-        params->runlist = (char **)malloc(0);
-        if (params->runlist == NULL) {
-            __leavemein_fail("Out of memory allocating runlist\n");
+        params->skiplist = (char **)malloc(0);
+        if (params->skiplist == NULL) {
+            __leavemein_fail("Out of memory allocating skiplist\n");
         }
 
-        start = runlist_env;
+        start = skiplist_env;
 
         for (colon = strchr(start, ':'); colon != NULL;
             start = colon + 1, colon = strchr(start, ':')) {
@@ -235,7 +228,7 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
         }
     }
 
-    if (!parse_runlist(params)) {
+    if (!parse_skiplist(params)) {
         return false;
     }
 
@@ -463,7 +456,7 @@ static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
     return true;
 }
 
-static bool __leavemein_lock(struct __leavemein_mutex *mutex) {
+static bool __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_lock(&mutex->mutex);
@@ -474,7 +467,7 @@ static bool __leavemein_lock(struct __leavemein_mutex *mutex) {
     return true;
 }
 
-static bool __leavemein_unlock(struct __leavemein_mutex *mutex) {
+static bool __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_unlock(&mutex->mutex);
@@ -524,26 +517,29 @@ static void __leavemein_print_status(__leavemein_test *test) {
 
     if (WIFEXITED(status)) {
         int exit_status;
-        bool is_error;
 
         exit_status = WEXITSTATUS(status);
-        is_error = (exit_status != 0);
-        __leavemein_printf("exit code %d: %s", exit_status,
-            is_error ? "FAILURE" : "SUCCESS");
-        __leavemein_update_status(is_error);
+
+        if (exit_status == 0) {
+            __leavemein_printf("exit code %d: SUCCESS", exit_status);
+            __leavemein_inc_passed();
+        } else {
+            __leavemein_printf("exit code %d: FAILURE", exit_status);
+            __leavemein_inc_failed();
+        }
     } else if (WIFSIGNALED(status)) {
-        __leavemein_printf("signal %d%s: %s", WTERMSIG(status),
-            WCOREDUMP(status) ? " (core dumped)" : "", "FAILURE");
-        __leavemein_update_status(true);
+        __leavemein_printf("signal %d%s: FAILURE", WTERMSIG(status),
+            WCOREDUMP(status) ? " (core dumped)" : "");
+        __leavemein_inc_failed();
     } else if (WIFSTOPPED(status)) {
-        __leavemein_printf("stopped, signal %d: %s", WSTOPSIG(status), "FAILURE");
-        __leavemein_update_status(true);
+        __leavemein_printf("stopped, signal %d: FAILURE", WSTOPSIG(status));
+        __leavemein_inc_failed();
     } else if (WIFCONTINUED(status)) {
         __leavemein_printf("continued: %s\n", "FAILURE");
-        __leavemein_update_status(true);
+        __leavemein_inc_failed();
     } else {
         __leavemein_printf("unknown reason: %s", "FAILURE");
-        __leavemein_update_status(true);
+        __leavemein_inc_failed();
     }
 }   
 

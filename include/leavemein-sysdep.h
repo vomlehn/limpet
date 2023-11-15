@@ -13,15 +13,16 @@
  * Parameters of the test run.
  * max_jobs - Maximum number of simultaneous threads. A zero value means
  *  there is no limit.
- * n_runlist - Number of items in runlist. If this is zero and runlist is NULL,
- * run all tests. If this is zero and runlist is not NULL, run nothing.
- * runlist - List of tests to run
+ * n_skiplist - Number of items in skiplist. If this is zero and skiplist is
+ *      NULL, run all tests. If this is zero and skiplist is not NULL but empty,
+ *      run nothing.
+ * skiplist - List of tests to run
  * timeout - Number of seconds to allow each test to run
  */
 struct __leavemein_params {
     unsigned max_jobs;
-    size_t n_runlist;
-    char **runlist;
+    size_t n_skiplist;
+    char **skiplist;
     float timeout;
 };
 
@@ -44,4 +45,6 @@ struct __leavemein_test {
 
 static void __leavemein_enqueue_done(struct __leavemein_test *test);
 static struct __leavemein_test * __leavemein_dequeue_done(void);
+static void __leavemein_inc_passed(void);
+static void __leavemein_inc_failed(void);
 #endif /* __LEAVEMEIN_SYSDEP_H_ */
