@@ -11,9 +11,9 @@ TESTS += ./simple
 
 .PHONY: test
 test: simple two-files
-	@sep=""; for test in $$TESTS; do \
+	@sep=""; for test in $(TESTS); do \
 		printf "$$sep"; \
-        echo "$$test"; \
+		echo "$$test"; \
 		$$test; \
 		sep="\n"; \
 	done
