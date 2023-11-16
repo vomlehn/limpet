@@ -6,7 +6,9 @@
 #define _LEAVEIN_TEST_LINUX_H_
 
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -21,6 +23,16 @@
 #include <termios.h>
 #include <unistd.h>
 
+
+static void __leavemein_exit(bool is_error) __attribute((noreturn));
+static void __leavemein_exit(bool is_error) {
+    close(0);
+    close(1);
+    close(2);
+
+    exit(is_error ? EXIT_FAILURE : EXIT_SUCCESS);
+}
+
 /*
  * print an error message like printf()
  */
@@ -32,7 +44,7 @@ static void __leavemein_fail(const char *fmt, ...) {
     vfprintf(stderr, fmt, ap);
     va_end(ap);
 
-    exit(EXIT_FAILURE);
+    __leavemein_exit(true);
 }
 
 static void __leavemein_warn(const char *fmt, ...) {
@@ -420,7 +432,7 @@ static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
  *
  * Returns: The number of characters written or -1 on error.
  */
-static ssize_t copy_file(int in_fd, int out_fd) {
+static ssize_t __leavemein_copy_file(int in_fd, int out_fd) {
     char buf[4096];
     ssize_t zrc = 0;
     ssize_t total = 0;
@@ -441,10 +453,176 @@ static ssize_t copy_file(int in_fd, int out_fd) {
     return total;
 }
 
-static void __leavemein_log_output(struct __leavemein_test *test) {
-    if (copy_file(test->sysdep.raw_pty, test->sysdep.log_fd) == -1) {
-        __leavemein_fail_errno("Copy to log file failed");
+/*
+ * Copy output into the log and wait for the process to terminate
+ */
+static void __leavemein_log_and_wait(struct __leavemein_test *test) {
+    enum { io_read, io_write, io_eof } io_state;
+    enum { proc_running, proc_killed, proc_reaped } proc_state;
+    struct timeval timeout;
+    struct timeval abs_timeout;
+    fd_set rfds;
+    fd_set wfds;
+    char buf[4096];
+    int nfds;
+    int pid_fd;
+    int rc;
+
+    timeout.tv_sec = (time_t)test->params->timeout;
+    timeout.tv_usec = (suseconds_t)((test->params->timeout - timeout.tv_sec) *
+        1000000);
+    rc = gettimeofday(&abs_timeout, NULL);
+    if (rc == -1) {
+        __leavemein_fail_errno("gettimeofday failed");
     }
+    timeradd(&abs_timeout, &timeout, &abs_timeout);
+
+    /*
+     * Get a file descriptor for this pid so we can use select() to wait for it
+     * to exit
+     */
+    pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
+    if (pid_fd == -1) {
+        __leavemein_fail_errno("pidfd_open failed for pid %d",
+            test->sysdep.pid);
+    }
+
+    io_state = io_read;
+    proc_state = proc_running;
+
+    do {
+        struct timeval delta_timeout;
+        struct timeval now;
+        struct timeval *tv;
+        ssize_t zrc;
+
+        nfds = 0;
+
+        FD_ZERO(&rfds);
+        FD_ZERO(&wfds);
+
+        switch (proc_state) {
+        case proc_running:
+            FD_SET(pid_fd, &rfds);
+            nfds = MAX(nfds, pid_fd + 1);
+
+            rc = gettimeofday(&now, NULL);
+            if (rc == -1) {
+                __leavemein_fail("gettimeofday failed");
+            }
+            if (timercmp(&abs_timeout, &now, >)) {
+                timersub(&abs_timeout, &now, &delta_timeout);
+            } else {
+                timerclear(&delta_timeout);
+            }
+            tv = &delta_timeout;
+            break;
+
+        case proc_killed:
+            FD_SET(pid_fd, &rfds);
+            nfds = MAX(nfds, pid_fd + 1);
+            tv = NULL;
+            break;
+
+        case proc_reaped:
+            tv = NULL;
+            break;
+        }
+
+        switch (io_state) {
+        case io_read:
+            FD_SET(test->sysdep.raw_pty, &rfds);
+            nfds = MAX(nfds, test->sysdep.raw_pty + 1);
+            break;
+
+        case io_write:
+            FD_SET(test->sysdep.log_fd, &wfds);
+            nfds = MAX(nfds, test->sysdep.log_fd + 1);
+            break;
+
+        case io_eof:
+            break;
+        }
+
+        rc = select(nfds, &rfds, &wfds, NULL, tv);
+        if (rc == -1) {
+            __leavemein_fail_errno("Select failed");
+        }
+
+        switch (proc_state) {
+        case proc_running:
+            if (FD_ISSET(pid_fd, &rfds)) {
+                rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
+                if (rc == -1) {
+                    __leavemein_fail_errno("waitpid failed");
+                }
+                proc_state = proc_reaped;
+            } else if (rc == 0) {
+                rc = kill(test->sysdep.pid, SIGKILL);
+                if (rc == -1) {
+                    __leavemein_warn("Unable to kill PID %d\n",
+                        test->sysdep.pid);
+                }
+                proc_state = proc_killed;
+            }
+            break;
+
+        case proc_killed:
+            if (FD_ISSET(pid_fd, &rfds)) {
+                rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
+                if (rc == -1) {
+                    __leavemein_fail_errno("waitpid failed");
+                }
+                proc_state = proc_reaped;
+            }
+            break;
+
+        case proc_reaped:
+            break;
+        }
+            
+        switch (io_state) {
+        case io_read:
+            if (FD_ISSET(test->sysdep.raw_pty, &rfds)) {
+                zrc = read(test->sysdep.raw_pty, buf, sizeof(buf));
+                switch (zrc) {
+                case -1:
+                    /*
+                     * I would have expected a zero return when the other end
+                     * of the pseudoterminal was closed, but seem to get
+                     * this
+                     */
+                    if (errno != EIO) {
+                        __leavemein_fail_errno("raw pty read failed");
+                    }
+                    io_state = io_eof;
+                    break;
+
+                case 0:
+                    io_state = io_eof;
+                    break;
+
+                default:
+                    io_state = io_write;
+                    break;
+                }
+            }
+            break;
+
+        case io_write:
+            if (FD_ISSET(test->sysdep.log_fd, &wfds)) {
+                zrc = write(test->sysdep.log_fd, buf, zrc);
+                if (zrc == -1) {
+                    __leavemein_fail_errno("log write failed");
+                }
+                io_state = io_read;
+            }
+            break;
+
+        case io_eof:
+            break;
+        }
+    } while (proc_state != proc_reaped || io_state != io_eof);
 }
 
 /*
@@ -459,7 +637,7 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
         __leavemein_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
 
-    total = copy_file(test->sysdep.log_fd, 1);
+    total = __leavemein_copy_file(test->sysdep.log_fd, 1);
     if (total == -1) {
         __leavemein_fail_errno("Log dump failed");
     }
@@ -470,13 +648,7 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
 static void *__leavemein_run_one(void *arg) {
     struct __leavemein_test *test = (struct __leavemein_test *)arg;
     pid_t pid;
-    struct timeval timeout;
-    fd_set rfds;
-    int nfds;
-    int pid_fd;
-    int rc;
 
-    printf("run_one: calling thread_setup\n");
     __leavemein_thread_setup(test);
 
     if (fflush(stdout) == -1) {
@@ -484,8 +656,6 @@ static void *__leavemein_run_one(void *arg) {
     }
 
     pid = fork();
-printf("run_one: pid is %d\n", test->sysdep.pid);
-fflush(stdout);
     switch (pid) {
     case -1:
         __leavemein_fail_errno("Fork failed");
@@ -494,7 +664,7 @@ fflush(stdout);
     case 0:
         __leavemein_setup_one(&test->sysdep);
         (*test->func)();
-        exit(EXIT_SUCCESS);
+        __leavemein_exit(false);
         break;
 
     default:
@@ -502,54 +672,15 @@ fflush(stdout);
         /*
          * Set the process ID and let the wait begin
          */
+        if (close(test->sysdep.tty_pty) == -1) {
+            __leavemein_fail_errno("close(test->tty_pty) failed");
+        }
         test->sysdep.pid = pid;
-printf("run_one: have pid %d for %s\n", pid, test->name); 
-
-        __leavemein_log_output(test);
         break;
     }
 
-    timeout.tv_sec = (time_t)test->params->timeout;
-    timeout.tv_usec = (suseconds_t)((test->params->timeout - timeout.tv_sec) *
-        1000000);
+    __leavemein_log_and_wait(test);
 
-    /*
-     * Get a file descriptor for this pid so we can use select() to wait for it
-     * to exit
-     */
-    pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
-    if (pid_fd == -1) {
-        __leavemein_fail_errno("pidfd_open failed for pid %d",
-            test->sysdep.pid);
-    }
-
-    nfds = pid_fd + 1;
-
-    do {
-        FD_ZERO(&rfds);
-        FD_SET(pid_fd, &rfds);
-        rc = select(nfds, &rfds, NULL, NULL, &timeout);
-        if (rc == -1) {
-            __leavemein_fail_errno("Select failed");
-        }
-    } while (rc != 0 && !FD_ISSET(pid_fd, &rfds));
-
-    if (!FD_ISSET(pid_fd, &rfds)) {
-        rc = kill(test->sysdep.pid, SIGKILL);
-
-        if (rc == -1) {
-            __leavemein_warn("Unable to kill PID %d\n", test->sysdep.pid);
-        }
-    }
-
-    rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
-    if (rc == -1) {
-        __leavemein_fail_errno("waitpid failed");
-    }
-
-    __leavemein_enqueue_done(test);
-
-// FIXME: check this return value
     return test;
 }
 
@@ -561,7 +692,6 @@ printf("run_one: have pid %d for %s\n", pid, test->name);
 static bool __leavemein_start_one(struct __leavemein_test *test) {
     int rc;
 
-printf("creating thread for %s\n", test->name);
     rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one, test);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to create thread");
@@ -576,7 +706,6 @@ printf("creating thread for %s\n", test->name);
 static void __leavemein_cleanup_test(struct __leavemein_test *test) {
     int rc;
 
-printf("Waiting for thread %s\n", test->name);
     rc = pthread_join(test->sysdep.thread, NULL);
     if (rc != 0) {
         __leavemein_fail_with(rc, "pthread_join failed");
@@ -613,9 +742,5 @@ static void __leavemein_print_status(__leavemein_test *test) {
         __leavemein_inc_failed();
     }
 }   
-
-static void __leavemein_exit(bool is_error) {
-    exit(is_error ? EXIT_FAILURE : EXIT_SUCCESS);
-}
 
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

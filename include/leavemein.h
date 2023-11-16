@@ -54,8 +54,6 @@
     static void __leavemein_test_ ## testname(void) {       \
         static struct __leavemein_test common = {           \
             .next = NULL,                                   \
-            .done = NULL,                                   \
-            .report = NULL,                                 \
             .name = #testname,                              \
             .func = testname,                               \
             .params = &__leavemein_params,                  \
@@ -86,18 +84,8 @@ struct __leavemein_params __leavemein_params __attribute((common));
  *      single-threaded code and removed during the text execution phase. We're
  *      generally multi-threaded then, but only one single thread function
  *      removes tests. So, no mutual exclusion needed.
- * __leavemein_donelist - Linked list of completed tests. This is called from
- *      multi-threaded code, so it has to use mutual exclusion.
- * __leavemein_mutex - Mutext protecting __leavemein_donelist
- * __leavemein_donelist_cond - Conditional variable protecting
- *      __leavemein_donelist
- * __leavemein_reportlist - list of tests ready to be reported
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
-struct __leavemein_test *__leavemein_donelist __attribute((common));
-struct __leavemein_mutex __leavemein_donelist_mutex __attribute((common));
-struct __leavemein_cond __leavemein_donelist_cond __attribute((common));
-struct __leavemein_test *__leavemein_reportlist __attribute((common));
 
 /*
  * Statistics-related items
@@ -152,7 +140,8 @@ static void __leavemein_wait_pending(unsigned pending) {
 }
 
 /*
- * Called by per-test constructor to add the test to the test list
+ * Called by per-test constructor to add the test to the test list. This
+ * is called in a single threaded context.
  */
 static void __leavemein_enqueue_test(struct __leavemein_test *test) {
     test->next = __leavemein_list;
@@ -160,84 +149,39 @@ static void __leavemein_enqueue_test(struct __leavemein_test *test) {
 }
 
 /*
- * Add a test to the list of those to report. No mutual exclusion needed as
- * we will be single threaded.
+ * Add a test to the list of those to report. Called in a single threaded
+ * context.
  */
-static void __leavemein_enqueue_report(struct __leavemein_test *test) {
-    test->report = __leavemein_reportlist;
-    __leavemein_reportlist = test;
+static struct __leavemein_test *
+__leavemein_first_test(void) {
+    return __leavemein_list;
 }
 
 /*
- * Pull one test off the list of reportable tests. Single threaded, no mutex
+ * Returns the next test in the list. Called in a single threaded context.
  */
-static struct __leavemein_test * __leavemein_dequeue_report(void) {
-    __leavemein_test *test;
-
-    test = __leavemein_reportlist;
-
-    if (test != NULL) {
-        __leavemein_reportlist = test->report;
-    }
-    
-    return test;
+static struct __leavemein_test *
+__leavemein_next_test(struct __leavemein_test * test) {
+    return test->next;
 }
 
-/*
- * Pull one test off the done list. Only call this when there is at least one
- * pending test.
- *
- * This is protected by a mutex because tests may complete at any time.
- */
-static void __leavemein_enqueue_done(struct __leavemein_test *test) {
-    __leavemein_mutex_lock(&__leavemein_donelist_mutex);
-
-    test->done = __leavemein_donelist;
-    __leavemein_donelist = test;
-
-    __leavemein_mutex_unlock(&__leavemein_donelist_mutex);
-}
-
-/*
- * Pull one test off the done list.
- *
- * We do not need to protect this because all tests have been added to donelist
- * and we are now single threaded.
- */
-static struct __leavemein_test * __leavemein_dequeue_done(void) {
-    __leavemein_test *test;
-
-    test = __leavemein_donelist;
-
-    if (test != NULL) {
-        __leavemein_donelist = test->done;
-    }
-    
-    return test;
-}
-
-static bool __leavemein_skip(const char *name) {
+static bool __leavemein_must_skip(const char *name) {
     size_t i;
 
     if (__leavemein_params.n_skiplist == 0) {
-printf("n_skillist is zero\n");
         if (__leavemein_params.skiplist == NULL) {
-printf("n_skillist is NULL, don't skip %s\n", name);
             return false;
         } else {
-printf("n_skillist is not NULL, skip %s\n", name);
             return true;
         }
     }
 
     for (i = 0; i < __leavemein_params.n_skiplist; i++) {
         if (strcmp(name, __leavemein_params.skiplist[i]) == 0) {
-printf("Got match, skip %s\n", name);
             return true;
         }
     }
 
-printf("No match, don't skip %s\n", name);
     return false;
 }
 
@@ -266,19 +210,16 @@ static void __leavemein_run(void) {
     struct __leavemein_test *p;
     const char *sep;
 
-    __leavemein_mutex_init(&__leavemein_donelist_mutex);
-    __leavemein_cond_init(&__leavemein_donelist_cond);
-
+    __leavemein_mutex_init(&__leavemein_statistics_mutex);
+    __leavemein_cond_init(&__leavemein_statistics_cond);
     __leavemein_parse_params(&__leavemein_params);
 
-    /* printf("start test execution"); */
-    for (p = __leavemein_list; p != NULL; p = p->next) {
-        if (__leavemein_skip(p->name)) {
-printf("Skipped %s\n", p->name);
+    for (p = __leavemein_first_test(); p != NULL;
+        p = __leavemein_next_test(p)) {
+        if (__leavemein_must_skip(p->name)) {
             __leavemein_inc_skipped();
             continue;
         }
-printf("Did not skip %s\n", p->name);
 
         /*
          * If we have a maximum number of concurrent jobs, wait until the
@@ -288,34 +229,31 @@ printf("Did not skip %s\n", p->name);
             __leavemein_wait_pending(__leavemein_params.max_jobs);
         }
         
-printf("Start %s\n", p->name);
         __leavemein_start_one(p);
         __leavemein_inc_started();
     }
-printf("All tests started\n");
 
     /*
-     * Wait for all tests to be done
+     * All tests have been started. We wait for everything to finish before
+     * printing reports to make sure than any unexpected errors are printed
+     * before the reports, and not lost in the clutter.
      */
-    for (p = __leavemein_dequeue_done(); p != NULL;
-        p = __leavemein_dequeue_done()) {
-printf("Wait for %s\n", p->name);
+    for (p = __leavemein_first_test(); p != NULL;
+        p = __leavemein_next_test(p)) {
         __leavemein_cleanup_test(p);
-        __leavemein_enqueue_report(p);
     }
-printf("Waiting done\n");
 
     /*
      * Report on the results
      */
     sep = "";
-    for (p = __leavemein_dequeue_report(); p != NULL;
-        p = __leavemein_dequeue_report()) {
+    for (p = __leavemein_first_test(); p != NULL;
+        p = __leavemein_next_test(p)) {
         __leavemein_report(p, sep);
         sep = "\n";
     }
 
-    printf("> Ran %u tests: %u passed %u failed %u skipped\n",
+    printf("%s> Ran %u tests: %u passed %u failed %u skipped\n", sep,
         __leavemein_total, __leavemein_passed, __leavemein_failed,
         __leavemein_skipped);
     __leavemein_exit(false);
