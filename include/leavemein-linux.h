@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <pty.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -21,30 +22,159 @@
 #include <unistd.h>
 
 /*
+ * print an error message like printf()
+ */
+static void __leavemein_fail(const char *fmt, ...) __attribute((noreturn));
+static void __leavemein_fail(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    exit(EXIT_FAILURE);
+}
+
+static void __leavemein_warn(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vprintf(fmt, ap);
+    va_end(ap);
+}
+
+static void __leavemein_printf(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+}
+
+#define __leavemein_fail_with(err, fmt, ...)    do {        \
+        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
+    } while (0)
+
+#define __leavemein_fail_errno(fmt, ...)    do {        \
+        __leavemein_fail_with(errno, fmt, ##__VA_ARGS__); \
+    } while (0)
+
+/*
+ * Define initializatoin for a structure holding a mutex and the mutex struct itself
+ */
+#define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
+
+struct __leavemein_mutex {
+    pthread_mutex_t mutex;
+};
+
+/*
+ * Define initialize for a struct with a conditional variable and a mutext
+ */
+#define __LEAVEMEIN_COND_INIT   { .cond = PTHREAD_COND_INITIALIZER, }
+
+struct __leavemein_cond {
+    pthread_cond_t  cond;
+};
+
+static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_init(&mutex->mutex, NULL);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to initialize mutex");
+    }
+
+    return true;
+}
+
+static bool __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_lock(&mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to lock mutex");
+    }
+
+    return true;
+}
+
+static bool __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_mutex_unlock(&mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to unlock mutex");
+    }
+
+    return true;
+}
+
+static bool __leavemein_cond_init(struct __leavemein_cond *cond) {
+    int rc;
+
+    rc = pthread_cond_init(&cond->cond, NULL);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to initialize conditional variable");
+    }
+
+    return true;
+}
+
+static bool __leavemein_cond_signal(struct __leavemein_cond *cond) {
+    int rc;
+
+    rc = pthread_cond_signal(&cond->cond);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to signal conditional variable");
+    }
+
+    return true;
+}
+
+static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
+    struct __leavemein_mutex *mutex) {
+    int rc;
+
+    rc = pthread_cond_wait(&cond->cond, &mutex->mutex);
+    if (rc != 0) {
+        __leavemein_fail_with(rc, "Failed to wait conditional variable");
+    }
+
+    return true;
+}
+
+/*
  * Value to use for __leavemein_sysdep initiatization
  */
-#define __LEAVEMEIN_SYSDEP_INIT         {       \
-        .log_fd = -1,                           \
-        .raw_pty = -1,                          \
-        .tty_pty = -1,                          \
-        .pid = -1,                              \
-        .thread = 0,                            \
-        .exit_status = 0,                       \
+#define __LEAVEMEIN_SYSDEP_INIT         {   \
+        .log_fd = -1,                       \
+        .raw_pty = -1,                      \
+        .tty_pty = -1,                      \
+        .thread = 0,                        \
+        .exit_status = 0,                   \
+        .pid = -1,                          \
     }
 
 /*
  * System-dependent per-test information.
  * log_fd - file descriptor for the log file.
- * test_fd - file descriptor on which will be written output from the test
- * bad_errno - If we fail and have an errno value, it will be stored here.
+ * raw_pty - the master side of a pseudoterminal
+ * tty_pty - the slave side of a pseudoterminal
+ * thread - the thread for a test that is responsible for forking and waiting
+ *      for the process whose process is in pid
+ * exit_status - If we fail and have an errno value, it will be stored here.
+ * pid - the process ID of the subprocess that actually runs the test
+ * mutex - Mutex guarding the pid element of this structure
+ * cond - Condition variable guarding the pid element of this structure
  */
 struct __leavemein_sysdep {
-    int         log_fd;
-    int         raw_pty;
-    int         tty_pty;
-    pid_t       pid;
-    pthread_t   thread;
-    int         exit_status;
+    int                         log_fd;
+    int                         raw_pty;
+    int                         tty_pty;
+    pthread_t                   thread;
+    int                         exit_status;
+    pid_t                       pid;
 };
 
 #include <leavemein-sysdep.h>
@@ -71,55 +201,6 @@ static const char *__leavemein_envvars[] = {
     __LEAVEMEIN_RUNLIST,
     __LEAVEMEIN_TIMEOUT,
 };
-
-/*
- * Define initializatoin for a structure holding a mutex and the mutex struct itself
- */
-#define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
-
-struct __leavemein_mutex {
-    pthread_mutex_t mutex;
-};
-
-/*
- * Define initialize for a struct with a conditional variable and a mutext
- */
-#define __LEAVEMEIN_COND_INIT   { .cond = PTHREAD_COND_INITIALIZER, \
-                                    .mutex = PTHREAD_MUTEX_INITIALIZER, }
-
-struct __leavemein_cond {
-    pthread_cond_t  cond;
-};
-
-/*
- * print an error message like printf()
- */
-static void __leavemein_fail(const char *fmt, ...) __attribute((noreturn));
-static void __leavemein_fail(const char *fmt, ...) {
-    va_list ap;
-
-    va_start(ap, fmt);  
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-
-    exit(EXIT_FAILURE);
-}
-
-static void __leavemein_printf(const char *fmt, ...) {
-    va_list ap;
-
-    va_start(ap, fmt);  
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-}
-
-#define __leavemein_fail_with(err, fmt, ...)    do {        \
-        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
-    } while (0)
-
-#define __leavemein_fail_errno(fmt, ...)    do {        \
-        __leavemein_fail_with(errno, fmt, ##__VA_ARGS__); \
-    } while (0)
 
 /*
  * Add a test name to the run list
@@ -388,14 +469,24 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
 
 static void *__leavemein_run_one(void *arg) {
     struct __leavemein_test *test = (struct __leavemein_test *)arg;
+    pid_t pid;
+    struct timeval timeout;
+    fd_set rfds;
+    int nfds;
+    int pid_fd;
+    int rc;
+
+    printf("run_one: calling thread_setup\n");
     __leavemein_thread_setup(test);
 
     if (fflush(stdout) == -1) {
         __leavemein_fail_errno("fflush(stdout) failed");
     }
 
-    test->sysdep.pid = fork();
-    switch (test->sysdep.pid) {
+    pid = fork();
+printf("run_one: pid is %d\n", test->sysdep.pid);
+fflush(stdout);
+    switch (pid) {
     case -1:
         __leavemein_fail_errno("Fork failed");
         break;
@@ -407,40 +498,31 @@ static void *__leavemein_run_one(void *arg) {
         break;
 
     default:
+
+        /*
+         * Set the process ID and let the wait begin
+         */
+        test->sysdep.pid = pid;
+printf("run_one: have pid %d for %s\n", pid, test->name); 
+
         __leavemein_log_output(test);
         break;
     }
 
-// FIXME: check this return value
-    return test;
-}
-
-/*
- * Run one test
- *  test - Pointer to a __leavemein_params for the test to run
- * Returns: true if the test was started, false otherwise
- */
-static bool __leavemein_start_one(struct __leavemein_params * params,
-    struct __leavemein_test *test) {
-    struct timeval timeout;
-    fd_set rfds;
-    int nfds;
-    int pid_fd;
-    int rc;
-
-    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one, test);
-    if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to create thread");
-    }
-
-    timeout.tv_sec = (time_t)params->timeout;
-    timeout.tv_usec = (suseconds_t)((params->timeout - timeout.tv_sec) * 1000000);
+    timeout.tv_sec = (time_t)test->params->timeout;
+    timeout.tv_usec = (suseconds_t)((test->params->timeout - timeout.tv_sec) *
+        1000000);
 
     /*
      * Get a file descriptor for this pid so we can use select() to wait for it
      * to exit
      */
     pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
+    if (pid_fd == -1) {
+        __leavemein_fail_errno("pidfd_open failed for pid %d",
+            test->sysdep.pid);
+    }
+
     nfds = pid_fd + 1;
 
     do {
@@ -452,6 +534,14 @@ static bool __leavemein_start_one(struct __leavemein_params * params,
         }
     } while (rc != 0 && !FD_ISSET(pid_fd, &rfds));
 
+    if (!FD_ISSET(pid_fd, &rfds)) {
+        rc = kill(test->sysdep.pid, SIGKILL);
+
+        if (rc == -1) {
+            __leavemein_warn("Unable to kill PID %d\n", test->sysdep.pid);
+        }
+    }
+
     rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
     if (rc == -1) {
         __leavemein_fail_errno("waitpid failed");
@@ -459,74 +549,38 @@ static bool __leavemein_start_one(struct __leavemein_params * params,
 
     __leavemein_enqueue_done(test);
 
-    return true;
+// FIXME: check this return value
+    return test;
 }
 
-static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
+/*
+ * Run one test
+ *  test - Pointer to a __leavemein_params for the test to run
+ * Returns: true if the test was started, false otherwise
+ */
+static bool __leavemein_start_one(struct __leavemein_test *test) {
     int rc;
 
-    rc = pthread_mutex_init(&mutex->mutex, NULL);
+printf("creating thread for %s\n", test->name);
+    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one, test);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to initialize mutex");
+        __leavemein_fail_with(rc, "Failed to create thread");
     }
 
     return true;
 }
 
-static bool __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
+/*
+ * Wait for a thread and clean things up
+ */
+static void __leavemein_cleanup_test(struct __leavemein_test *test) {
     int rc;
 
-    rc = pthread_mutex_lock(&mutex->mutex);
+printf("Waiting for thread %s\n", test->name);
+    rc = pthread_join(test->sysdep.thread, NULL);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to lock mutex");
+        __leavemein_fail_with(rc, "pthread_join failed");
     }
-
-    return true;
-}
-
-static bool __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
-    int rc;
-
-    rc = pthread_mutex_unlock(&mutex->mutex);
-    if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to unlock mutex");
-    }
-
-    return true;
-}
-
-static bool __leavemein_cond_init(struct __leavemein_cond *cond) {
-    int rc;
-
-    rc = pthread_cond_init(&cond->cond, NULL);
-    if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to initialize conditional variable");
-    }
-
-    return true;
-}
-
-static bool __leavemein_cond_signal(struct __leavemein_cond *cond) {
-    int rc;
-
-    rc = pthread_cond_signal(&cond->cond);
-    if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to signal conditional variable");
-    }
-
-    return true;
-}
-
-static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
-    struct __leavemein_mutex *mutex) {
-    int rc;
-
-    rc = pthread_cond_wait(&cond->cond, &mutex->mutex);
-    if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to wait conditional variable");
-    }
-
-    return true;
 }
 
 static void __leavemein_print_status(__leavemein_test *test) {

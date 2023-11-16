@@ -55,8 +55,10 @@
         static struct __leavemein_test common = {           \
             .next = NULL,                                   \
             .done = NULL,                                   \
+            .report = NULL,                                 \
             .name = #testname,                              \
             .func = testname,                               \
+            .params = &__leavemein_params,                  \
             .sysdep = __LEAVEMEIN_SYSDEP_INIT,              \
         };                                                  \
         __leavemein_enqueue_test(&common);                  \
@@ -89,11 +91,13 @@ struct __leavemein_params __leavemein_params __attribute((common));
  * __leavemein_mutex - Mutext protecting __leavemein_donelist
  * __leavemein_donelist_cond - Conditional variable protecting
  *      __leavemein_donelist
+ * __leavemein_reportlist - list of tests ready to be reported
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
 struct __leavemein_test *__leavemein_donelist __attribute((common));
 struct __leavemein_mutex __leavemein_donelist_mutex __attribute((common));
 struct __leavemein_cond __leavemein_donelist_cond __attribute((common));
+struct __leavemein_test *__leavemein_reportlist __attribute((common));
 
 /*
  * Statistics-related items
@@ -156,6 +160,30 @@ static void __leavemein_enqueue_test(struct __leavemein_test *test) {
 }
 
 /*
+ * Add a test to the list of those to report. No mutual exclusion needed as
+ * we will be single threaded.
+ */
+static void __leavemein_enqueue_report(struct __leavemein_test *test) {
+    test->report = __leavemein_reportlist;
+    __leavemein_reportlist = test;
+}
+
+/*
+ * Pull one test off the list of reportable tests. Single threaded, no mutex
+ */
+static struct __leavemein_test * __leavemein_dequeue_report(void) {
+    __leavemein_test *test;
+
+    test = __leavemein_reportlist;
+
+    if (test != NULL) {
+        __leavemein_reportlist = test->report;
+    }
+    
+    return test;
+}
+
+/*
  * Pull one test off the done list. Only call this when there is at least one
  * pending test.
  *
@@ -192,19 +220,24 @@ static bool __leavemein_skip(const char *name) {
     size_t i;
 
     if (__leavemein_params.n_skiplist == 0) {
+printf("n_skillist is zero\n");
         if (__leavemein_params.skiplist == NULL) {
+printf("n_skillist is NULL, don't skip %s\n", name);
             return false;
         } else {
+printf("n_skillist is not NULL, skip %s\n", name);
             return true;
         }
     }
 
     for (i = 0; i < __leavemein_params.n_skiplist; i++) {
         if (strcmp(name, __leavemein_params.skiplist[i]) == 0) {
+printf("Got match, skip %s\n", name);
             return true;
         }
     }
 
+printf("No match, don't skip %s\n", name);
     return false;
 }
 
@@ -241,9 +274,11 @@ static void __leavemein_run(void) {
     /* printf("start test execution"); */
     for (p = __leavemein_list; p != NULL; p = p->next) {
         if (__leavemein_skip(p->name)) {
+printf("Skipped %s\n", p->name);
             __leavemein_inc_skipped();
             continue;
         }
+printf("Did not skip %s\n", p->name);
 
         /*
          * If we have a maximum number of concurrent jobs, wait until the
@@ -253,13 +288,29 @@ static void __leavemein_run(void) {
             __leavemein_wait_pending(__leavemein_params.max_jobs);
         }
         
-        __leavemein_start_one(&__leavemein_params, p);
+printf("Start %s\n", p->name);
+        __leavemein_start_one(p);
         __leavemein_inc_started();
     }
+printf("All tests started\n");
 
-    sep = "";
+    /*
+     * Wait for all tests to be done
+     */
     for (p = __leavemein_dequeue_done(); p != NULL;
         p = __leavemein_dequeue_done()) {
+printf("Wait for %s\n", p->name);
+        __leavemein_cleanup_test(p);
+        __leavemein_enqueue_report(p);
+    }
+printf("Waiting done\n");
+
+    /*
+     * Report on the results
+     */
+    sep = "";
+    for (p = __leavemein_dequeue_report(); p != NULL;
+        p = __leavemein_dequeue_report()) {
         __leavemein_report(p, sep);
         sep = "\n";
     }
