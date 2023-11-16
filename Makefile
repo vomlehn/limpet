@@ -10,8 +10,9 @@ TESTS += ./simple
 TESTS += ./two-files
 
 .PHONY: test
-test: simple two-files
-	@sep=""; for test in $(TESTS); do \
+test: simple two-files timeout
+	sep=""; \
+    for test in $(TESTS); do \
 		printf "$$sep"; \
 		echo "$$test"; \
 		if $$test; then \
@@ -20,7 +21,15 @@ test: simple two-files
             echo "Failures were found"; \
         fi; \
 		sep="\n"; \
-	done
+	done; \
+	if LEAVEMEIN_TIMEOUT=0.5 ./timeout; then \
+        echo "No failures found"; \
+    else \
+        echo "Failures were found"; \
+    fi; \
+    sep="\n"; \
+	unset LEAVEMEIN_TIMEOUT; \
+	echo "Done"
 
 simple: simple.o include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -o simple simple.o $(LDFLAGS)
@@ -39,6 +48,13 @@ two-files-main.o: test/two-files-main.cc \
 two-files-sub.o: test/two-files-sub.cc \
 	include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -c -o two-files-sub.o test/two-files-sub.cc
+
+timeout: timeout.o include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -o timeout timeout.o $(LDFLAGS)
+
+timeout.o: test/timeout.cc \
+	include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -c -o timeout.o test/timeout.cc
 
 .PHONY: clean
 clean:
