@@ -15,12 +15,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef LEAVEMEIN
 LEAVEMEIN_TEST(simple_good) {
-    printf("Running simple_good\n");
+    printf("This is printed by test simple_good\n");
     leavemein_assert_eq(0, 0);
 }
 
 LEAVEMEIN_TEST(simple_bad) {
-    printf("Running simple_bad\n");
+    printf("This is printed byt test simple_bad\n");
     leavemein_assert_eq(0, 1);
 }
 
