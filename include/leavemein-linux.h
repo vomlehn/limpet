@@ -157,24 +157,13 @@ static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
 }
 
 /*
- * Value to use for __leavemein_sysdep initiatization
- */
-#define __LEAVEMEIN_SYSDEP_INIT         {   \
-        .log_fd = -1,                       \
-        .raw_pty = -1,                      \
-        .tty_pty = -1,                      \
-        .thread = 0,                        \
-        .exit_status = 0,                   \
-        .pid = -1,                          \
-    }
-
-/*
  * System-dependent per-test information.
  * log_fd - file descriptor for the log file.
  * raw_pty - the master side of a pseudoterminal
  * tty_pty - the slave side of a pseudoterminal
  * thread - the thread for a test that is responsible for forking and waiting
  *      for the process whose process is in pid
+ * timedout - true if the process timed out
  * exit_status - If we fail and have an errno value, it will be stored here.
  * pid - the process ID of the subprocess that actually runs the test
  * mutex - Mutex guarding the pid element of this structure
@@ -185,9 +174,23 @@ struct __leavemein_sysdep {
     int                         raw_pty;
     int                         tty_pty;
     pthread_t                   thread;
+    bool                        timedout;
     int                         exit_status;
     pid_t                       pid;
 };
+
+/*
+ * Value to use for __leavemein_sysdep initiatization
+ */
+#define __LEAVEMEIN_SYSDEP_INIT         {   \
+        .log_fd = -1,                       \
+        .raw_pty = -1,                      \
+        .tty_pty = -1,                      \
+        .thread = 0,                        \
+        .timedout = false,                  \
+        .exit_status = 0,                   \
+        .pid = -1,                          \
+    }
 
 #include <leavemein-sysdep.h>
 
@@ -558,6 +561,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
                 }
                 proc_state = proc_reaped;
             } else if (rc == 0) {
+                test->sysdep.timedout = true;
                 rc = kill(test->sysdep.pid, SIGKILL);
                 if (rc == -1) {
                     __leavemein_warn("Unable to kill PID %d\n",
@@ -715,7 +719,10 @@ static void __leavemein_cleanup_test(struct __leavemein_test *test) {
 static void __leavemein_print_status(__leavemein_test *test) {
     int status = test->sysdep.exit_status;
 
-    if (WIFEXITED(status)) {
+    if (test->sysdep.timedout) {
+        __leavemein_printf("timed out: FAILURE");
+        __leavemein_inc_failed();
+    } else if (WIFEXITED(status)) {
         int exit_status;
 
         exit_status = WEXITSTATUS(status);
