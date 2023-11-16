@@ -256,7 +256,7 @@ static void __leavemein_run(void) {
     printf("%s> Ran %u tests: %u passed %u failed %u skipped\n", sep,
         __leavemein_total, __leavemein_passed, __leavemein_failed,
         __leavemein_skipped);
-    __leavemein_exit(false);
+    __leavemein_exit(__leavemein_failed != 0);
 }
 #endif /* LEAVEMEIN */
 #endif /* _LEAVEIN_H_ */
