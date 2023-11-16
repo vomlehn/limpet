@@ -7,14 +7,18 @@ CPPFLAGS += -DLEAVEMEIN
 
 TESTS :=
 TESTS += ./simple
-#TESTS += ./two-files
+TESTS += ./two-files
 
 .PHONY: test
 test: simple two-files
 	@sep=""; for test in $(TESTS); do \
 		printf "$$sep"; \
 		echo "$$test"; \
-		$$test; \
+		if $$test; then \
+            echo "No failures found"; \
+        else \
+            echo "Failures were found"; \
+        fi; \
 		sep="\n"; \
 	done
 
