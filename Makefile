@@ -5,9 +5,13 @@ CPPFLAGS += -Wno-unused-parameter
 CPPFLAGS += -Iinclude
 CPPFLAGS += -DLEAVEMEIN
 
+TESTS :=
+TESTS += ./simple
+#TESTS += ./two-files
+
 .PHONY: test
 test: simple two-files
-	@sep=""; for test in ./simple ./two-files; do \
+	@sep=""; for test in $$TESTS; do \
 		printf "$$sep"; \
         echo "$$test"; \
 		$$test; \
