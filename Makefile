@@ -34,6 +34,12 @@ test: simple two-files timeout skip
 		echo "Failures were found"; \
 	fi; \
 	sep="\n"; \
+	if LEAVEMEIN_RUNLIST="" ./skip; then \
+		echo "No failures found"; \
+	else \
+		echo "Failures were found"; \
+	fi; \
+	sep="\n"; \
 	echo "Done"
 
 simple: simple.o include/leavemein.h include/leavemein-linux.h
