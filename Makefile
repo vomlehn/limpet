@@ -10,7 +10,7 @@ TESTS += ./simple
 TESTS += ./two-files
 
 .PHONY: test
-test: simple two-files timeout skip
+test: simple two-files timeout skip maxjobs
 	sep=""; \
 	for test in $(TESTS); do \
 		printf "$$sep"; \
@@ -35,6 +35,12 @@ test: simple two-files timeout skip
 	fi; \
 	sep="\n"; \
 	if LEAVEMEIN_RUNLIST="" ./skip; then \
+		echo "No failures found"; \
+	else \
+		echo "Failures were found"; \
+	fi; \
+	sep="\n"; \
+	if LEAVEMEIN_MAX_JOBS="2" ./maxjobs; then \
 		echo "No failures found"; \
 	else \
 		echo "Failures were found"; \
@@ -73,6 +79,13 @@ skip: skip.o include/leavemein.h include/leavemein-linux.h
 skip.o: test/skip.cc \
 	include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -c -o skip.o test/skip.cc
+
+maxjobs: maxjobs.o include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -o maxjobs maxjobs.o $(LDFLAGS)
+
+maxjobs.o: test/maxjobs.cc \
+	include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -c -o maxjobs.o test/maxjobs.cc
 
 .PHONY: clean
 clean:
