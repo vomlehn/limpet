@@ -169,25 +169,20 @@ __leavemein_next_test(struct __leavemein_test * test) {
 static bool __leavemein_must_run(const char *name) {
     size_t i;
 
-printf("must_run: checking %s\n", name);
     if (__leavemein_params.n_runlist == 0) {
         if (__leavemein_params.runlist == NULL) {
-printf("must_run: run everything\n");
             return true;
         } else {
-printf("must_run: run nothing\n");
             return false;
         }
     }
 
     for (i = 0; i < __leavemein_params.n_runlist; i++) {
         if (strcmp(name, __leavemein_params.runlist[i]) == 0) {
-printf("must_run: run %s\n", name);
             return true;
         }
     }
 
-printf("must_run: skip %s\n", name);
     return false;
 }
 
@@ -223,12 +218,10 @@ static void __leavemein_run(void) {
     for (p = __leavemein_first_test(); p != NULL;
         p = __leavemein_next_test(p)) {
         if (!__leavemein_must_run(p->name)) {
-printf("enqueue_test: skipping %s\n", p->name);
             p->skipped = true;
             __leavemein_inc_skipped();
             continue;
         }
-printf("enqueue_test: adding %s\n", p->name);
 
         /*
          * If we have a maximum number of concurrent jobs, wait until the
@@ -243,21 +236,8 @@ printf("enqueue_test: adding %s\n", p->name);
     }
 
     /*
-     * All tests have been started. We wait for everything to finish before
-     * printing reports to make sure than any unexpected errors are printed
-     * before the reports, and not lost in the clutter.
-     */
-    for (p = __leavemein_first_test(); p != NULL;
-        p = __leavemein_next_test(p)) {
-        if (p -> skipped) {
-            continue;
-        }
-
-        __leavemein_cleanup_test(p);
-    }
-
-    /*
-     * Report on the results
+     * All tests have been started. Wait for them to finish and generate
+     * reports as they do so.
      */
     sep = "";
     for (p = __leavemein_first_test(); p != NULL;
@@ -266,6 +246,7 @@ printf("enqueue_test: adding %s\n", p->name);
             continue;
         }
 
+        __leavemein_cleanup_test(p);
         __leavemein_report(p, sep);
         sep = "\n";
     }
