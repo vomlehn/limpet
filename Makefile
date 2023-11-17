@@ -10,25 +10,30 @@ TESTS += ./simple
 TESTS += ./two-files
 
 .PHONY: test
-test: simple two-files timeout
+test: simple two-files timeout skip
 	sep=""; \
-    for test in $(TESTS); do \
+	for test in $(TESTS); do \
 		printf "$$sep"; \
 		echo "$$test"; \
 		if $$test; then \
-            echo "No failures found"; \
-        else \
-            echo "Failures were found"; \
-        fi; \
+			echo "No failures found"; \
+		else \
+			echo "Failures were found"; \
+		fi; \
 		sep="\n"; \
 	done; \
 	if LEAVEMEIN_TIMEOUT=0.5 ./timeout; then \
-        echo "No failures found"; \
-    else \
-        echo "Failures were found"; \
-    fi; \
-    sep="\n"; \
-	unset LEAVEMEIN_TIMEOUT; \
+		echo "No failures found"; \
+	else \
+		echo "Failures were found"; \
+	fi; \
+	sep="\n"; \
+	if LEAVEMEIN_RUNLIST="skip1 skip3" ./skip; then \
+		echo "No failures found"; \
+	else \
+		echo "Failures were found"; \
+	fi; \
+	sep="\n"; \
 	echo "Done"
 
 simple: simple.o include/leavemein.h include/leavemein-linux.h
@@ -55,6 +60,13 @@ timeout: timeout.o include/leavemein.h include/leavemein-linux.h
 timeout.o: test/timeout.cc \
 	include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -c -o timeout.o test/timeout.cc
+
+skip: skip.o include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -o skip skip.o $(LDFLAGS)
+
+skip.o: test/skip.cc \
+	include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -c -o skip.o test/skip.cc
 
 .PHONY: clean
 clean:

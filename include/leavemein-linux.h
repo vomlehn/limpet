@@ -64,7 +64,7 @@ static void __leavemein_printf(const char *fmt, ...) {
 }
 
 #define __leavemein_fail_with(err, fmt, ...)    do {        \
-        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(errno)); \
+        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
     } while (0)
 
 #define __leavemein_fail_errno(fmt, ...)    do {        \
@@ -225,76 +225,70 @@ static const char *__leavemein_envvars[] = {
  *
  * Returns: true if successful, false otherwise.
  */
-static bool __leavemein_add_testname(struct __leavemein_params *params,
+static void __leavemein_add_testname(struct __leavemein_params *params,
     const char *start, const char *end) {
     size_t testname_size;
     char *testname;
-    size_t new_skiplist_size;
+    size_t new_runlist_size;
 
-    testname_size = start - end + 1;        /* string plus terminator NUL */
+    testname_size = end - start;
     testname = (char *)malloc(testname_size);
     if (testname == NULL) {
         __leavemein_fail("Out of memory allocating %zu bytes for test name\n",
             testname_size);
-        return false;
     }
 
     strncpy(testname, start, testname_size);
 
-    new_skiplist_size = sizeof(params->skiplist[0]) * (params->n_skiplist);
-    params->skiplist = (char **)realloc(params->skiplist, new_skiplist_size);
-    if (params->skiplist == NULL) {
-        __leavemein_fail("Unable to realloc %zu bytes\n", new_skiplist_size);
+    new_runlist_size = sizeof(params->runlist[0]) * (params->n_runlist + 1);
+    params->runlist = (char **)realloc(params->runlist, new_runlist_size);
+    if (params->runlist == NULL) {
+        __leavemein_fail("Unable to realloc %zu bytes\n", new_runlist_size);
     }
 
-    params->skiplist[params->n_skiplist] = testname;
-    params->n_skiplist += 1;
-    return true;
+    params->runlist[params->n_runlist] = testname;
+    params->n_runlist += 1;
 }
 
 /*
- * Parse the skiplist, if any
+ * Parse the runlist, if any
  * params - Pointer to the configuration structure
  *
  * Returns: true on success, false otherwise
  */
-static bool parse_skiplist(struct __leavemein_params *params) {
-    const char *skiplist_env;
+static bool __leavemein_parse_runlist(struct __leavemein_params *params) {
+    const char *runlist_env;
 
-    skiplist_env = getenv(__LEAVEMEIN_RUNLIST);
+    runlist_env = getenv(__LEAVEMEIN_RUNLIST);
 
-    if (skiplist_env != NULL) {
+    if (runlist_env != NULL) {
         const char *start;
-        const char *colon;
+        const char *space;
 
-        params->skiplist = (char **)malloc(0);
-        if (params->skiplist == NULL) {
-            __leavemein_fail("Out of memory allocating skiplist\n");
+        params->runlist = (char **)malloc(0);
+        if (params->runlist == NULL) {
+            __leavemein_fail("Out of memory allocating runlist\n");
         }
 
-        start = skiplist_env;
+        start = runlist_env;
 
-        for (colon = strchr(start, ':'); colon != NULL;
-            start = colon + 1, colon = strchr(start, ':')) {
+        for (space = strchr(start, ' '); space != NULL;
+            space = strchr(start, ' ')) {
 
-            if (start == colon) {
+            if (start == space) {
                 __leavemein_fail("Zero length test name invalid in %s\n",
                     __LEAVEMEIN_RUNLIST);
             }
 
-            if (!__leavemein_add_testname(params, start, colon)) {
-                return false;
-            }
-
+            __leavemein_add_testname(params, start, space);
+            start = space + 1;
         }
 
-        if (*start == '\0') {
+        if (*start != '\0') {
             size_t name_len;
 
             name_len = strlen(start);
-            if (!__leavemein_add_testname(params, start, start + name_len)) {
-                return false;
-            }
+            __leavemein_add_testname(params, start, start + name_len);
         }
     }
 
@@ -324,7 +318,7 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
         }
     }
 
-    if (!parse_skiplist(params)) {
+    if (!__leavemein_parse_runlist(params)) {
         return false;
     }
 
