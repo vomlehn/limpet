@@ -5,6 +5,10 @@
 // embtest
 // rustest
 // intest
+// limpet
+// parasie
+// symbiote
+// testpartner
 #ifndef _LEAVEIN_H_
 #define _LEAVEIN_H_
 
@@ -30,11 +34,11 @@
  */
 // FIXME: verify these values
 #ifndef __LEAVEMEIN_SETUP_PRI
-#define __LEAVEMEIN_SETUP_PRI   148
+#define __LEAVEMEIN_SETUP_PRI   101
 #endif
 
 #ifndef __LEAVEMEIN_RUN_PRI
-#define __LEAVEMEIN_RUN_PRI     149
+#define __LEAVEMEIN_RUN_PRI     102
 #endif
 
 /*
