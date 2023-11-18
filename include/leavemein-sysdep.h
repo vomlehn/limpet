@@ -7,7 +7,7 @@
 #ifndef __LEAVEMEIN_SYSDEP_H_
 #define __LEAVEMEIN_SYSDEP_H_
 
-#define __LEAVEMEIN_DEFAULT_TIMEOUT     3.0
+#define __LEAVEMEIN_DEFAULT_TIMEOUT     30.0
 
 /*
  * Parameters of the test run.
@@ -36,6 +36,7 @@ struct __leavemein_params {
  */
 struct __leavemein_test {
     struct __leavemein_test     *next;
+    struct __leavemein_test     *done;
     bool                        skipped;
     const char *                name;
     void                        (*func)(void);
@@ -45,4 +46,5 @@ struct __leavemein_test {
 
 static void __leavemein_inc_passed(void);
 static void __leavemein_inc_failed(void);
+static void __leavemein_enqueue_done(struct __leavemein_test *test);
 #endif /* __LEAVEMEIN_SYSDEP_H_ */

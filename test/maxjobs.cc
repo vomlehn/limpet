@@ -8,27 +8,30 @@
 
 #include <leavemein.h>
 
+static const int sleep_time = 2;
+
 int main(int argc, char *argv[]) {
     fprintf(stderr, "Should never get to main()");
     exit(EXIT_FAILURE);
 }
 
 #ifdef LEAVEMEIN
+static void x(const char *name) {
+    printf("This is printed by test %s\n", name);
+    printf("Two messages should print after a %d second delay, the third\n"
+        "after an additional %d second delay\n", sleep_time, sleep_time);
+    sleep(sleep_time);
+}
+
 LEAVEMEIN_TEST(max_jobs1) {
-    printf("This is printed by test max_jobs1\n");
-    printf("You should see this message immediately\n");
-    sleep(2);
+    x(__func__);
 }
 
 LEAVEMEIN_TEST(max_jobs2) {
-    printf("This is printed by test max_jobs2\n");
-    printf("You should see this message immediately\n");
-    sleep(2);
+    x(__func__);
 }
 
 LEAVEMEIN_TEST(max_jobs3) {
-    printf("This is printed by test max_jobs3\n");
-    printf("You should see this message 2 seconds after max_jobs1 and max_jobs2"
-        "finish\n");
+    x(__func__);
 }
 #endif /* LEAVEMEIN */

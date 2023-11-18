@@ -9,10 +9,7 @@ TESTS :=
 TESTS += ./simple
 TESTS += ./two-files
 
-.PHONY: test
-test: simple two-files timeout skip maxjobs
-	sep=""; \
-	for test in $(TESTS); do \
+SIMPLE_TEST= for test in $(TESTS); do \
 		printf "$$sep"; \
 		echo "$$test"; \
 		if $$test; then \
@@ -21,30 +18,44 @@ test: simple two-files timeout skip maxjobs
 			echo "Failures were found"; \
 		fi; \
 		sep="\n"; \
-	done; \
+	done
+TIMEOUT_TEST= echo "./timeout"; \
 	if LEAVEMEIN_TIMEOUT=0.5 ./timeout; then \
 		echo "No failures found"; \
 	else \
 		echo "Failures were found"; \
-	fi; \
-	sep="\n"; \
+	fi
+SKIP2_TEST = echo "./skip"; \
 	if LEAVEMEIN_RUNLIST="skip1 skip3" ./skip; then \
 		echo "No failures found"; \
 	else \
 		echo "Failures were found"; \
-	fi; \
-	sep="\n"; \
+	fi
+SKIP_ALL_TEST= echo "./skip"; \
 	if LEAVEMEIN_RUNLIST="" ./skip; then \
 		echo "No failures found"; \
 	else \
 		echo "Failures were found"; \
-	fi; \
-	sep="\n"; \
+	fi
+MAXJOBS_TEST = echo "./maxjobs"; \
 	if LEAVEMEIN_MAX_JOBS="2" ./maxjobs; then \
 		echo "No failures found"; \
 	else \
 		echo "Failures were found"; \
-	fi; \
+	fi
+
+.PHONY: test
+test: simple two-files timeout skip maxjobs
+	sep=""; \
+    $(SIMPLE_TEST); \
+	sep="\n"; \
+    $(TIMEOUT_TEST); \
+	sep="\n"; \
+    $(SKIP2_TEST); \
+	sep="\n"; \
+    $(SKIP_ALL_TEST); \
+	sep="\n"; \
+    $(MAXJOBS_TEST); \
 	sep="\n"; \
 	echo "Done"
 

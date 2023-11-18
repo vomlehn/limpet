@@ -1,6 +1,10 @@
 /*
  * Code allowing embedding of tests within C/C++ code
  */
+// FIXME: possible names
+// embtest
+// rustest
+// intest
 #ifndef _LEAVEIN_H_
 #define _LEAVEIN_H_
 
@@ -54,6 +58,7 @@
     static void __leavemein_test_ ## testname(void) {       \
         static struct __leavemein_test common = {           \
             .next = NULL,                                   \
+            .done = NULL,                                   \
             .skipped = false,                               \
             .name = #testname,                              \
             .func = testname,                               \
@@ -87,12 +92,42 @@ struct __leavemein_params __leavemein_params __attribute((common));
  *      removes tests. So, no mutual exclusion needed.
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
+struct __leavemein_test *__leavemein_done __attribute((common));
+struct __leavemein_mutex __leavemein_done_mutex __attribute((common));
+struct __leavemein_cond __leavemein_done_cond __attribute((common));
+
+static void __leavemein_enqueue_done(struct __leavemein_test *test) {
+    __leavemein_mutex_lock(&__leavemein_done_mutex);
+
+    test->done = __leavemein_done;
+    __leavemein_done = test;
+
+    __leavemein_cond_signal(&__leavemein_done_cond);
+    __leavemein_mutex_unlock(&__leavemein_done_mutex);
+}
+
+static struct __leavemein_test *__leavemein_dequeue_done(void) {
+    struct __leavemein_test *test;
+
+    __leavemein_mutex_lock(&__leavemein_done_mutex);
+
+    while (__leavemein_done == NULL) {
+        __leavemein_cond_wait(&__leavemein_done_cond,
+            &__leavemein_done_mutex);
+    }
+
+    test = __leavemein_done;
+    __leavemein_done = test->done;
+
+    __leavemein_mutex_unlock(&__leavemein_done_mutex);
+
+    return test;
+}
 
 /*
  * Statistics-related items
  */
 unsigned __leavemein_started __attribute((common));
-unsigned __leavemein_total __attribute((common));
 unsigned __leavemein_passed __attribute((common));
 unsigned __leavemein_failed __attribute((common));
 unsigned __leavemein_skipped __attribute((common));
@@ -105,16 +140,12 @@ struct __leavemein_cond __leavemein_statistics_cond __attribute((common));
 static void __leavemein_statistics_inc(unsigned *item) {
     __leavemein_mutex_lock(&__leavemein_statistics_mutex);
     (*item)++;
-    __leavemein_total++;
     __leavemein_cond_signal(&__leavemein_statistics_cond);
     __leavemein_mutex_unlock(&__leavemein_statistics_mutex);
 }
 
 static void __leavemein_inc_started(void) {
-    __leavemein_mutex_lock(&__leavemein_statistics_mutex);
-    __leavemein_started++;
-    __leavemein_cond_signal(&__leavemein_statistics_cond);
-    __leavemein_mutex_unlock(&__leavemein_statistics_mutex);
+    __leavemein_statistics_inc(&__leavemein_started);
 }
 
 static void __leavemein_inc_passed(void) {
@@ -129,12 +160,20 @@ static void __leavemein_inc_skipped(void) {
     __leavemein_statistics_inc(&__leavemein_skipped);
 }
 
+/*
+ * Wait until we can start another test
+ */
 static void __leavemein_wait_pending(unsigned pending) {
+    unsigned running;
+
     __leavemein_mutex_lock(&__leavemein_statistics_mutex);
 
-    while (__leavemein_started - __leavemein_total > pending) {
+    running = __leavemein_started - (__leavemein_passed + __leavemein_failed);
+    while (running >= pending) {
         __leavemein_cond_wait(&__leavemein_statistics_cond,
             &__leavemein_statistics_mutex);
+        running = __leavemein_started -
+            (__leavemein_passed + __leavemein_failed);
     }
 
     __leavemein_mutex_unlock(&__leavemein_statistics_mutex);
@@ -210,6 +249,7 @@ static void __leavemein_run(void) \
 static void __leavemein_run(void) {
     struct __leavemein_test *p;
     const char *sep;
+    size_t i;
 
     __leavemein_mutex_init(&__leavemein_statistics_mutex);
     __leavemein_cond_init(&__leavemein_statistics_cond);
@@ -230,9 +270,9 @@ static void __leavemein_run(void) {
         if (__leavemein_params.max_jobs != 0) {
             __leavemein_wait_pending(__leavemein_params.max_jobs);
         }
-        
-        __leavemein_start_one(p);
+
         __leavemein_inc_started();
+        __leavemein_start_one(p);
     }
 
     /*
@@ -240,19 +280,20 @@ static void __leavemein_run(void) {
      * reports as they do so.
      */
     sep = "";
-    for (p = __leavemein_first_test(); p != NULL;
-        p = __leavemein_next_test(p)) {
-        if (p -> skipped) {
+    for (i = 0; i < __leavemein_started; i++) {
+        p = __leavemein_dequeue_done();
+
+        if (p->skipped) {
             continue;
         }
 
         __leavemein_cleanup_test(p);
         __leavemein_report(p, sep);
-        sep = "\n";
+        sep = "---\n";
     }
 
     printf("%s> Ran %u tests: %u passed %u failed %u skipped\n", sep,
-        __leavemein_total, __leavemein_passed, __leavemein_failed,
+        __leavemein_started, __leavemein_passed, __leavemein_failed,
         __leavemein_skipped);
     __leavemein_exit(__leavemein_failed != 0);
 }

@@ -50,6 +50,7 @@ static void __leavemein_fail(const char *fmt, ...) {
 static void __leavemein_warn(const char *fmt, ...) {
     va_list ap;
 
+    printf("Warning: ");
     va_start(ap, fmt);  
     vprintf(fmt, ap);
     va_end(ap);
@@ -69,6 +70,14 @@ static void __leavemein_printf(const char *fmt, ...) {
 
 #define __leavemein_fail_errno(fmt, ...)    do {        \
         __leavemein_fail_with(errno, fmt, ##__VA_ARGS__); \
+    } while (0)
+
+#define __leavemein_warn_with(err, fmt, ...)    do {        \
+        __leavemein_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
+    } while (0)
+
+#define __leavemein_warn_errno(fmt, ...)    do {        \
+        __leavemein_warn_with(errno, fmt, ##__VA_ARGS__); \
     } while (0)
 
 /*
@@ -640,6 +649,10 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
         __leavemein_fail_errno("Log dump failed");
     }
 
+    if (close(test->sysdep.log_fd) != 0) {
+        __leavemein_warn_errno("Close of log file failed");
+    }
+
     return total;
 }
 
@@ -679,6 +692,18 @@ static void *__leavemein_run_one(void *arg) {
 
     __leavemein_log_and_wait(test);
 
+    if (test->sysdep.timedout) {
+        __leavemein_inc_failed();
+        __leavemein_enqueue_done(test);
+    } else if (!WIFEXITED(test->sysdep.exit_status) ||
+        WEXITSTATUS(test->sysdep.exit_status) != 0) {
+            __leavemein_inc_failed();
+            __leavemein_enqueue_done(test);
+    } else {
+            __leavemein_inc_passed();
+            __leavemein_enqueue_done(test);
+    }
+
     return test;
 }
 
@@ -714,8 +739,8 @@ static void __leavemein_print_status(__leavemein_test *test) {
     int status = test->sysdep.exit_status;
 
     if (test->sysdep.timedout) {
-        __leavemein_printf("timed out: FAILURE");
-        __leavemein_inc_failed();
+        __leavemein_printf("timed out after %g seconds: FAILURE",
+            test->params->timeout);
     } else if (WIFEXITED(status)) {
         int exit_status;
 
@@ -723,24 +748,18 @@ static void __leavemein_print_status(__leavemein_test *test) {
 
         if (exit_status == 0) {
             __leavemein_printf("exit code %d: SUCCESS", exit_status);
-            __leavemein_inc_passed();
         } else {
             __leavemein_printf("exit code %d: FAILURE", exit_status);
-            __leavemein_inc_failed();
         }
     } else if (WIFSIGNALED(status)) {
         __leavemein_printf("signal %d%s: FAILURE", WTERMSIG(status),
             WCOREDUMP(status) ? " (core dumped)" : "");
-        __leavemein_inc_failed();
     } else if (WIFSTOPPED(status)) {
         __leavemein_printf("stopped, signal %d: FAILURE", WSTOPSIG(status));
-        __leavemein_inc_failed();
     } else if (WIFCONTINUED(status)) {
         __leavemein_printf("continued: %s\n", "FAILURE");
-        __leavemein_inc_failed();
     } else {
         __leavemein_printf("unknown reason: %s", "FAILURE");
-        __leavemein_inc_failed();
     }
 }   
 
