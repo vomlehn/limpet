@@ -43,9 +43,15 @@ MAXJOBS_TEST = echo "./maxjobs"; \
 	else \
 		echo "Failures were found"; \
 	fi
+SIGNAL_TEST = echo "./signal"; \
+	if ./signal; then \
+		echo "No failures found"; \
+	else \
+		echo "Failures were found"; \
+	fi
 
 .PHONY: test
-test: simple two-files timeout skip maxjobs
+test: simple two-files timeout skip maxjobs signal
 	sep=""; \
     $(SIMPLE_TEST); \
 	sep="\n"; \
@@ -56,6 +62,8 @@ test: simple two-files timeout skip maxjobs
     $(SKIP_ALL_TEST); \
 	sep="\n"; \
     $(MAXJOBS_TEST); \
+	sep="\n"; \
+    $(SIGNAL_TEST); \
 	sep="\n"; \
 	echo "Done"
 
@@ -98,6 +106,20 @@ maxjobs.o: test/maxjobs.cc \
 	include/leavemein.h include/leavemein-linux.h
 	$(CC) $(CPPFLAGS) -c -o maxjobs.o test/maxjobs.cc
 
+signal: signal.o include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -o signal signal.o $(LDFLAGS)
+
+signal.o: test/signal.cc \
+	include/leavemein.h include/leavemein-linux.h
+	$(CC) $(CPPFLAGS) -c -o signal.o test/signal.cc
+
 .PHONY: clean
 clean:
-	rm -f simple two-files two-files-main.o two-files-sub.o
+	rm -f simple simple.o \
+        two-files two-files-main.o two-files-sub.o \
+        timeout timeout.o \
+        skip skip,o \
+        maxjobs maxjobs.o \
+        signal signal.o
+
+    

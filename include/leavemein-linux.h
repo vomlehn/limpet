@@ -203,7 +203,7 @@ struct __leavemein_sysdep {
 
 #include <leavemein-sysdep.h>
 
-#define ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
+#define __LEAVEMEIN_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
 
 /*
  * Environment variables available to configure executation are:
@@ -347,7 +347,7 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
     /*
      * Remove things in the environment specific to leavmein
      */
-    for (i = 0; i < ARRAY_SIZE(__leavemein_envvars); i++) {
+    for (i = 0; i < __LEAVEMEIN_ARRAY_SIZE(__leavemein_envvars); i++) {
         const char *envvar;
         envvar = __leavemein_envvars[i];
 
@@ -735,6 +735,64 @@ static void __leavemein_cleanup_test(struct __leavemein_test *test) {
     }
 }
 
+#define __LEAVEMEIN_DEFINE_SIGNAME(signame) \
+    {.number = SIG ## signame, .name = #signame}
+
+static void __leavemein_print_signame(int sig) {
+    static const struct {
+        int         number;
+        const char* name;
+    } signames[] = {
+        __LEAVEMEIN_DEFINE_SIGNAME(ABRT),
+        __LEAVEMEIN_DEFINE_SIGNAME(ALRM),
+        __LEAVEMEIN_DEFINE_SIGNAME(BUS),
+        __LEAVEMEIN_DEFINE_SIGNAME(CHLD),
+        __LEAVEMEIN_DEFINE_SIGNAME(CLD),
+        __LEAVEMEIN_DEFINE_SIGNAME(CONT),
+        __LEAVEMEIN_DEFINE_SIGNAME(FPE),
+        __LEAVEMEIN_DEFINE_SIGNAME(HUP),
+        __LEAVEMEIN_DEFINE_SIGNAME(ILL),
+        __LEAVEMEIN_DEFINE_SIGNAME(INT),
+        __LEAVEMEIN_DEFINE_SIGNAME(IO),
+        __LEAVEMEIN_DEFINE_SIGNAME(IOT),
+        __LEAVEMEIN_DEFINE_SIGNAME(KILL),
+        __LEAVEMEIN_DEFINE_SIGNAME(PIPE),
+        __LEAVEMEIN_DEFINE_SIGNAME(POLL),
+        __LEAVEMEIN_DEFINE_SIGNAME(PROF),
+        __LEAVEMEIN_DEFINE_SIGNAME(PWR),
+        __LEAVEMEIN_DEFINE_SIGNAME(QUIT),
+        __LEAVEMEIN_DEFINE_SIGNAME(SEGV),
+        __LEAVEMEIN_DEFINE_SIGNAME(STKFLT),
+        __LEAVEMEIN_DEFINE_SIGNAME(STOP),
+        __LEAVEMEIN_DEFINE_SIGNAME(TSTP),
+        __LEAVEMEIN_DEFINE_SIGNAME(SYS),
+        __LEAVEMEIN_DEFINE_SIGNAME(TERM),
+        __LEAVEMEIN_DEFINE_SIGNAME(TRAP),
+        __LEAVEMEIN_DEFINE_SIGNAME(TTIN),
+        __LEAVEMEIN_DEFINE_SIGNAME(TTOU),
+        __LEAVEMEIN_DEFINE_SIGNAME(URG),
+        __LEAVEMEIN_DEFINE_SIGNAME(USR1),
+        __LEAVEMEIN_DEFINE_SIGNAME(USR2),
+        __LEAVEMEIN_DEFINE_SIGNAME(VTALRM),
+        __LEAVEMEIN_DEFINE_SIGNAME(XCPU),
+        __LEAVEMEIN_DEFINE_SIGNAME(XFSZ),
+        __LEAVEMEIN_DEFINE_SIGNAME(WINCH),
+    };
+    size_t i;
+
+    for (i = 0; i < __LEAVEMEIN_ARRAY_SIZE(signames); i++) {
+        if (signames[i].number == sig) {
+            break;
+        }
+    }
+
+    if (i == __LEAVEMEIN_ARRAY_SIZE(signames)) {
+        __leavemein_printf("signal unknown (%d)", sig);
+    } else {
+        __leavemein_printf("signal SIG%s (%d)", signames[i].name, sig);
+    }
+}
+
 static void __leavemein_print_status(__leavemein_test *test) {
     int status = test->sysdep.exit_status;
 
@@ -752,10 +810,25 @@ static void __leavemein_print_status(__leavemein_test *test) {
             __leavemein_printf("exit code %d: FAILURE", exit_status);
         }
     } else if (WIFSIGNALED(status)) {
-        __leavemein_printf("signal %d%s: FAILURE", WTERMSIG(status),
-            WCOREDUMP(status) ? " (core dumped)" : "");
+        int sig;
+        const char *core_dumped;
+
+        sig = WTERMSIG(status);
+        __leavemein_print_signame(sig);
+#ifdef WCOREDUMP
+        core_dumped = WCOREDUMP(status) ? " (core dumped)" : "";
+#else
+        core_dumped = "";
+#endif
+
+        __leavemein_printf("%s: FAILURE", core_dumped);
     } else if (WIFSTOPPED(status)) {
-        __leavemein_printf("stopped, signal %d: FAILURE", WSTOPSIG(status));
+        int sig;
+
+        sig = WSTOPSIG(status);
+        __leavemein_printf("stopped, ");
+        __leavemein_print_signame(sig);
+        __leavemein_printf(": FAILURE");
     } else if (WIFCONTINUED(status)) {
         __leavemein_printf("continued: %s\n", "FAILURE");
     } else {
