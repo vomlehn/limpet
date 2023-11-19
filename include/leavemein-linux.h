@@ -226,127 +226,25 @@ static const char *__leavemein_envvars[] = {
     __LEAVEMEIN_TIMEOUT,
 };
 
-/*
- * Add a test name to the run list
- * start - pointer to the beginning of the test name
- * end - pointer one past the end of the test name
- * params - pointer to the structure storing the configuration
- *
- * Returns: true if successful, false otherwise.
- */
-static void __leavemein_add_testname(struct __leavemein_params *params,
-    const char *start, const char *end) {
-    size_t testname_size;
-    char *testname;
-    size_t new_runlist_size;
+static const char *__leavemein_get_maxjobs(void) {
+    return getenv(__LEAVEMEIN_MAX_JOBS);
+}
 
-    testname_size = end - start;
-    testname = (char *)malloc(testname_size);
-    if (testname == NULL) {
-        __leavemein_fail("Out of memory allocating %zu bytes for test name\n",
-            testname_size);
-    }
+static const char *__leavemein_get_runlist(void) {
+    return getenv(__LEAVEMEIN_RUNLIST);
+}
 
-    strncpy(testname, start, testname_size);
-
-    new_runlist_size = sizeof(params->runlist[0]) * (params->n_runlist + 1);
-    params->runlist = (char **)realloc(params->runlist, new_runlist_size);
-    if (params->runlist == NULL) {
-        __leavemein_fail("Unable to realloc %zu bytes\n", new_runlist_size);
-    }
-
-    params->runlist[params->n_runlist] = testname;
-    params->n_runlist += 1;
+static const char *__leavemein_get_timeout(void) {
+    return getenv(__LEAVEMEIN_TIMEOUT);
 }
 
 /*
- * Parse the runlist, if any
- * params - Pointer to the configuration structure
- *
- * Returns: true on success, false otherwise
+ * Remove things in the environment specific to leavmein
  */
-static bool __leavemein_parse_runlist(struct __leavemein_params *params) {
-    const char *runlist_env;
-
-    runlist_env = getenv(__LEAVEMEIN_RUNLIST);
-
-    if (runlist_env != NULL) {
-        const char *start;
-        const char *space;
-
-        params->runlist = (char **)malloc(0);
-        if (params->runlist == NULL) {
-            __leavemein_fail("Out of memory allocating runlist\n");
-        }
-
-        start = runlist_env;
-
-        for (space = strchr(start, ' '); space != NULL;
-            space = strchr(start, ' ')) {
-
-            if (start == space) {
-                __leavemein_fail("Zero length test name invalid in %s\n",
-                    __LEAVEMEIN_RUNLIST);
-            }
-
-            __leavemein_add_testname(params, start, space);
-            start = space + 1;
-        }
-
-        if (*start != '\0') {
-            size_t name_len;
-
-            name_len = strlen(start);
-            __leavemein_add_testname(params, start, start + name_len);
-        }
-    }
-
-    return true;
-}
-
-/*
- * Parse environment variables to get the configuration
- * params - pointer to the structure storing the configuration
- *
- * Returns: true on success, false otherwise.
- */
-static bool __leavemein_parse_params(struct __leavemein_params *params) {
-    const char *max_jobs_env;
-    const char *timeout;
+static void __leavemein_parse_done(void)
+{
     size_t i;
 
-    memset(params, 0, sizeof(*params));
-
-    max_jobs_env = getenv(__LEAVEMEIN_MAX_JOBS);
-    if (max_jobs_env != NULL) {
-        char *endptr;
-        params->max_jobs = strtoul(max_jobs_env, &endptr, 0);
-        if (*max_jobs_env == '\0' || *endptr != '\0') {
-            __leavemein_fail("Invalid value specified for %s\n",
-                __LEAVEMEIN_MAX_JOBS);
-        }
-    }
-
-    if (!__leavemein_parse_runlist(params)) {
-        return false;
-    }
-
-    timeout = getenv(__LEAVEMEIN_TIMEOUT);
-    if (timeout == NULL) {
-        params->timeout = __LEAVEMEIN_DEFAULT_TIMEOUT;
-    } else {
-        char *endptr;
-
-        params->timeout = strtof(timeout, &endptr);
-
-        if (*timeout == '\0' || *endptr != '\0') {
-            __leavemein_fail("Bad timeout value\n", timeout);
-        }
-    }
-
-    /*
-     * Remove things in the environment specific to leavmein
-     */
     for (i = 0; i < __LEAVEMEIN_ARRAY_SIZE(__leavemein_envvars); i++) {
         const char *envvar;
         envvar = __leavemein_envvars[i];
@@ -356,8 +254,6 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
                 envvar);
         }
     }
-
-    return true;
 }
 
 static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
