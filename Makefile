@@ -3,7 +3,7 @@ CPPFLAGS += $(CPPFLAGS) -g -ggdb
 CPPFLAGS += -Wall -Wextra -Werror
 CPPFLAGS += -Wno-unused-parameter
 CPPFLAGS += -Iinclude
-CPPFLAGS += -DLEAVEMEIN
+CPPFLAGS += -DLEAVEMEIN=LEAVEMEIN_LINUX
 
 TESTS :=
 TESTS += ./simple

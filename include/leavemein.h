@@ -15,7 +15,16 @@
 #ifdef LEAVEMEIN
 #include <unistd.h>
 
-#include <leavemein-linux.h>
+#define LEAVEMEIN_LINUX             2
+#define LEAVEMEIN_SINGLE_THREADED   3
+
+#if LEAVEMEIN == LEAVEMEIN_LINUX
+#include "leavemein-linux.h"
+#elif LEAVEMEIN == LEAVEMEIN_SINGLE_THREADED
+#error singlethreaded not yet supported
+#else
+#error LEAVEMEIN is not supported
+#endif
 
 /*
  * These definitions are intended for use by the user code
