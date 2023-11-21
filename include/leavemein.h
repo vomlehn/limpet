@@ -13,7 +13,6 @@
 #define _LEAVEIN_H_
 
 #ifdef LEAVEMEIN
-#include <unistd.h>
 
 #define LEAVEMEIN_LINUX             2
 #define LEAVEMEIN_SINGLE_THREADED   3
@@ -86,6 +85,11 @@
     do { if ((a) != (b)) __leavemein_exit(true); } while (0)
 #define leavemein_assert_ne(a, b)    \
     do { if ((a) != (b)) __leavemein_exit(true); } while (0)
+
+/*
+ * String used to separate reports
+ */
+#define REPORT_SEP      "---\n"
     
 /*
  * These definitions are intended for internal use by the leavemein code
@@ -288,6 +292,16 @@ static void __leavemein_inc_started(void) {
     __leavemein_statistics_inc(&__leavemein_started);
 }
 
+static unsigned __leavemein_get_started(void) {
+    unsigned started;
+
+    __leavemein_mutex_lock(&__leavemein_statistics_mutex);
+    started = __leavemein_started;
+    __leavemein_mutex_unlock(&__leavemein_statistics_mutex);
+
+    return started;
+}
+
 static void __leavemein_inc_passed(void) {
     __leavemein_statistics_inc(&__leavemein_passed);
 }
@@ -378,6 +392,17 @@ static void __leavemein_report(struct __leavemein_test *test, const char *sep) {
     __leavemein_printf("\n");
 }
 
+static void __leavemein_report_on_done(size_t *reported, const char **sep) {
+    for (; *reported != __leavemein_get_started(); (*reported)++) {
+        struct __leavemein_test *p;
+
+        p = __leavemein_dequeue_done();
+        __leavemein_cleanup_test(p);
+        __leavemein_report(p, *sep);
+        *sep = REPORT_SEP;
+    }
+}
+
 /*
  * This is the function that runs all the tests in the file including this
  * header file. There will actually be one of these in each file #including
@@ -389,11 +414,14 @@ static void __leavemein_run(void) \
 static void __leavemein_run(void) {
     struct __leavemein_test *p;
     const char *sep;
-    size_t i;
+    size_t reported;
 
     __leavemein_mutex_init(&__leavemein_statistics_mutex);
     __leavemein_cond_init(&__leavemein_statistics_cond);
     __leavemein_parse_params(&__leavemein_params);
+
+    sep = "";
+    reported = 0;
 
     for (p = __leavemein_first_test(); p != NULL;
         p = __leavemein_next_test(p)) {
@@ -413,24 +441,20 @@ static void __leavemein_run(void) {
 
         __leavemein_inc_started();
         __leavemein_start_one(p);
+
+        /*
+         * Keep resource usage to a minimum by doing reporting here. It
+         * doesn't need to be exact, so no fancy sychronization.
+         */
+        __leavemein_report_on_done(&reported, &sep);
     }
 
+printf("=================\n");
     /*
-     * All tests have been started. Wait for them to finish and generate
-     * reports as they do so.
+     * All tests have been started. Print reports for any that haven't
+     * been reported.
      */
-    sep = "";
-    for (i = 0; i < __leavemein_started; i++) {
-        p = __leavemein_dequeue_done();
-
-        if (p->skipped) {
-            continue;
-        }
-
-        __leavemein_cleanup_test(p);
-        __leavemein_report(p, sep);
-        sep = "---\n";
-    }
+    __leavemein_report_on_done(&reported, &sep);
 
     printf("%s> Ran %u tests: %u passed %u failed %u skipped\n", sep,
         __leavemein_started, __leavemein_passed, __leavemein_failed,
