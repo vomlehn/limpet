@@ -23,6 +23,45 @@
 #include <termios.h>
 #include <unistd.h>
 
+/*
+ * System-dependent per-test information.
+ * log_fd - file descriptor for the log file.
+ * raw_pty - the master side of a pseudoterminal
+ * tty_pty - the slave side of a pseudoterminal
+ * thread - the thread for a test that is responsible for forking and waiting
+ *      for the process whose process is in pid
+ * timedout - true if the process timed out
+ * exit_status - If we fail and have an errno value, it will be stored here.
+ * pid - the process ID of the subprocess that actually runs the test
+ * mutex - Mutex guarding the pid element of this structure
+ * cond - Condition variable guarding the pid element of this structure
+ */
+struct __leavemein_sysdep {
+    int                         log_fd;
+    int                         raw_pty;
+    int                         tty_pty;
+    pthread_t                   thread;
+    bool                        timedout;
+    int                         exit_status;
+    pid_t                       pid;
+};
+
+#include "leavemein-sysdep.h"
+
+/*
+ * Value to use for __leavemein_sysdep initiatization
+ */
+#define __LEAVEMEIN_SYSDEP_INIT         {   \
+        .log_fd = -1,                       \
+        .raw_pty = -1,                      \
+        .tty_pty = -1,                      \
+        .thread = 0,                        \
+        .timedout = false,                  \
+        .exit_status = 0,                   \
+        .pid = -1,                          \
+    }
+
+#define __LEAVEMEIN_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
 
 static void __leavemein_exit(bool is_error) __attribute((noreturn));
 static void __leavemein_exit(bool is_error) {
@@ -81,7 +120,7 @@ static void __leavemein_printf(const char *fmt, ...) {
     } while (0)
 
 /*
- * Define initializatoin for a structure holding a mutex and the mutex struct itself
+ * Define initialization for a structure holding a mutex
  */
 #define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
 
@@ -98,62 +137,53 @@ struct __leavemein_cond {
     pthread_cond_t  cond;
 };
 
-static bool __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
+static void __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_init(&mutex->mutex, NULL);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to initialize mutex");
     }
-
-    return true;
 }
 
-static bool __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
+static void __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_lock(&mutex->mutex);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to lock mutex");
     }
-
-    return true;
 }
 
-static bool __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
+static void __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_unlock(&mutex->mutex);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to unlock mutex");
     }
-
-    return true;
 }
 
-static bool __leavemein_cond_init(struct __leavemein_cond *cond) {
+static void __leavemein_cond_init(struct __leavemein_cond *cond) {
     int rc;
 
     rc = pthread_cond_init(&cond->cond, NULL);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to initialize conditional variable");
+        __leavemein_fail_with(rc,
+            "Failed to initialize conditional variable");
     }
-
-    return true;
 }
 
-static bool __leavemein_cond_signal(struct __leavemein_cond *cond) {
+static void __leavemein_cond_signal(struct __leavemein_cond *cond) {
     int rc;
 
     rc = pthread_cond_signal(&cond->cond);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to signal conditional variable");
     }
-
-    return true;
 }
 
-static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
+static void __leavemein_cond_wait(struct __leavemein_cond *cond,
     struct __leavemein_mutex *mutex) {
     int rc;
 
@@ -161,57 +191,15 @@ static bool __leavemein_cond_wait(struct __leavemein_cond *cond,
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to wait conditional variable");
     }
-
-    return true;
 }
-
-/*
- * System-dependent per-test information.
- * log_fd - file descriptor for the log file.
- * raw_pty - the master side of a pseudoterminal
- * tty_pty - the slave side of a pseudoterminal
- * thread - the thread for a test that is responsible for forking and waiting
- *      for the process whose process is in pid
- * timedout - true if the process timed out
- * exit_status - If we fail and have an errno value, it will be stored here.
- * pid - the process ID of the subprocess that actually runs the test
- * mutex - Mutex guarding the pid element of this structure
- * cond - Condition variable guarding the pid element of this structure
- */
-struct __leavemein_sysdep {
-    int                         log_fd;
-    int                         raw_pty;
-    int                         tty_pty;
-    pthread_t                   thread;
-    bool                        timedout;
-    int                         exit_status;
-    pid_t                       pid;
-};
-
-/*
- * Value to use for __leavemein_sysdep initiatization
- */
-#define __LEAVEMEIN_SYSDEP_INIT         {   \
-        .log_fd = -1,                       \
-        .raw_pty = -1,                      \
-        .tty_pty = -1,                      \
-        .thread = 0,                        \
-        .timedout = false,                  \
-        .exit_status = 0,                   \
-        .pid = -1,                          \
-    }
-
-#include <leavemein-sysdep.h>
-
-#define __LEAVEMEIN_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
 
 /*
  * Environment variables available to configure executation are:
  * LEAVEMEIN_MAX_JOBS   Specifies the maximum number of threads running at a
  *      time. If this is not set or is zero, there is no limit
  * LEAVEMEIN_RUNLIST    A list of names of tests to be run, separated by
- *      colons. If this is not set, all tests will be run. Note: If this is set
- *      to an empty string, no tests will be run
+ *      colons. If this is not set, all tests will be run. Note: If this is
+ *      set to an empty string, no tests will be run
  */
 #define __LEAVEMEIN_MAX_JOBS  "LEAVEMEIN_MAX_JOBS"
 #define __LEAVEMEIN_RUNLIST   "LEAVEMEIN_RUNLIST"
@@ -256,6 +244,12 @@ static void __leavemein_parse_done(void)
     }
 }
 
+/*
+ * Create a pseudoterminal so that the test can play with stdin, stdout,
+ * and stderr.
+ */
+static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep)
+    __LEAVEMEIN_UNUSED;
 static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
     struct termios termios;
     struct winsize winsize;
@@ -271,7 +265,8 @@ static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
         __leavemein_fail_errno("Unable to get windows size");
     }
 
-    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios, &winsize);
+    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios,
+        &winsize);
     if (rc == -1) {
         __leavemein_fail_errno("Unable to create pty");
     }
@@ -305,6 +300,8 @@ static bool __leavemein_thread_setup(struct __leavemein_test *test) {
 /*
  * Set up the new test process
  */
+static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep)
+    __LEAVEMEIN_UNUSED;
 static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
     if (dup2(sysdep->tty_pty, 0) == -1) {
         __leavemein_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
@@ -334,6 +331,8 @@ static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
  *
  * Returns: The number of characters written or -1 on error.
  */
+static ssize_t __leavemein_copy_file(int in_fd, int out_fd)
+    __LEAVEMEIN_UNUSED;
 static ssize_t __leavemein_copy_file(int in_fd, int out_fd) {
     char buf[4096];
     ssize_t zrc = 0;
@@ -380,8 +379,8 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
     timeradd(&abs_timeout, &timeout, &abs_timeout);
 
     /*
-     * Get a file descriptor for this pid so we can use select() to wait for it
-     * to exit
+     * Get a file descriptor for this pid so we can use select() to wait for
+     * it to exit
      */
     pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
     if (pid_fd == -1) {
@@ -552,6 +551,10 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
     return total;
 }
 
+/*
+ * Run the test as a subprocess
+ */
+static void *__leavemein_run_one(void *arg) __LEAVEMEIN_UNUSED;
 static void *__leavemein_run_one(void *arg) {
     struct __leavemein_test *test = (struct __leavemein_test *)arg;
     pid_t pid;
@@ -611,7 +614,8 @@ static void *__leavemein_run_one(void *arg) {
 static bool __leavemein_start_one(struct __leavemein_test *test) {
     int rc;
 
-    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one, test);
+    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one,
+        test);
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to create thread");
     }
@@ -731,5 +735,4 @@ static void __leavemein_print_status(__leavemein_test *test) {
         __leavemein_printf("unknown reason: %s", "FAILURE");
     }
 }   
-
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

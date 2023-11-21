@@ -21,7 +21,7 @@
 #if LEAVEMEIN == LEAVEMEIN_LINUX
 #include "leavemein-linux.h"
 #elif LEAVEMEIN == LEAVEMEIN_SINGLE_THREADED
-#error singlethreaded not yet supported
+#include "leavemein-single-threaded.h"
 #else
 #error LEAVEMEIN is not supported
 #endif
@@ -57,9 +57,9 @@
  *  }
  *
  * This actually defines two functions. The first function has the given
- * testnane, prefixed by __leavemein_, denoted by __leavemein_<testname>. This
- * function is called as a highest priority constructor. The second function
- * is the user's test function, with the name given in testname.
+ * testnane, prefixed by __leavemein_, denoted by __leavemein_<testname>.
+ * This function is called as a highest priority constructor. The second
+ * function is the user's test function, with the name given in testname.
  *
  * __leavemein_<testname> is responsible for setting up anything required by
  * the user's test and then linking it into a list for later processing.
@@ -227,9 +227,9 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
 /*
  * __leavemein_list - The linked list of all tests by the per-test
  *      constructors. Tests are added during the test discovery phase by
- *      single-threaded code and removed during the text execution phase. We're
- *      generally multi-threaded then, but only one single thread function
- *      removes tests. So, no mutual exclusion needed.
+ *      single-threaded code and removed during the text execution phase.
+ *      We're generally multi-threaded then, but only one single thread
+ *      function removes tests. So, no mutual exclusion needed.
  */
 struct __leavemein_test *__leavemein_list __attribute((common));
 struct __leavemein_test *__leavemein_done __attribute((common));
