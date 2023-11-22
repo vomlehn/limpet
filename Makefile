@@ -117,7 +117,7 @@ clean:
 	rm -f simple simple.o \
         two-files two-files-main.o two-files-sub.o \
         timeout timeout.o \
-        skip skip,o \
+        skip skip.o \
         maxjobs maxjobs.o \
         signal signal.o
 
