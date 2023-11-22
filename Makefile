@@ -3,8 +3,13 @@ CPPFLAGS += $(CPPFLAGS) -g -ggdb
 CPPFLAGS += -Wall -Wextra -Werror
 CPPFLAGS += -Wno-unused-parameter
 CPPFLAGS += -Iinclude
-#CPPFLAGS += -DLEAVEMEIN=LEAVEMEIN_SINGLE_THREADED
 CPPFLAGS += -DLEAVEMEIN=LEAVEMEIN_LINUX
+#CPPFLAGS += -DLEAVEMEIN=LEAVEMEIN_SINGLE_THREADED
+
+LEAVEMEIN_HDRS := include/leavemein.h include/leavemein-sysdep.h
+LEAVEMEIN_HDRS += include/leavemein-linux.h
+#LEAVEMEIN_HDRS += include/leavemein-single-threaded.h
+
 
 TESTS :=
 TESTS += ./simple
@@ -68,50 +73,43 @@ test: simple two-files timeout skip maxjobs signal
 	sep="\n"; \
 	echo "Done"
 
-simple: simple.o include/leavemein.h include/leavemein-linux.h
+simple: simple.o $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -o simple simple.o $(LDFLAGS)
 
-simple.o: test/simple.cc \
-	include/leavemein.h include/leavemein-linux.h
+simple.o: test/simple.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o simple.o test/simple.cc
 
 two-files: two-files-main.o two-files-sub.o
 	$(CC) $(CPPFLAGS) -o two-files two-files-main.o two-files-sub.o $(LDFLAGS)
 
-two-files-main.o: test/two-files-main.cc \
-	include/leavemein.h include/leavemein-linux.h
+two-files-main.o: test/two-files-main.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o two-files-main.o test/two-files-main.cc
 
-two-files-sub.o: test/two-files-sub.cc \
-	include/leavemein.h include/leavemein-linux.h
+two-files-sub.o: test/two-files-sub.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o two-files-sub.o test/two-files-sub.cc
 
-timeout: timeout.o include/leavemein.h include/leavemein-linux.h
+timeout: timeout.o $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -o timeout timeout.o $(LDFLAGS)
 
-timeout.o: test/timeout.cc \
-	include/leavemein.h include/leavemein-linux.h
+timeout.o: test/timeout.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o timeout.o test/timeout.cc
 
-skip: skip.o include/leavemein.h include/leavemein-linux.h
+skip: skip.o $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -o skip skip.o $(LDFLAGS)
 
-skip.o: test/skip.cc \
-	include/leavemein.h include/leavemein-linux.h
+skip.o: test/skip.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o skip.o test/skip.cc
 
-maxjobs: maxjobs.o include/leavemein.h include/leavemein-linux.h
+maxjobs: maxjobs.o $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -o maxjobs maxjobs.o $(LDFLAGS)
 
-maxjobs.o: test/maxjobs.cc \
-	include/leavemein.h include/leavemein-linux.h
+maxjobs.o: test/maxjobs.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o maxjobs.o test/maxjobs.cc
 
-signal: signal.o include/leavemein.h include/leavemein-linux.h
+signal: signal.o $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -o signal signal.o $(LDFLAGS)
 
-signal.o: test/signal.cc \
-	include/leavemein.h include/leavemein-linux.h
+signal.o: test/signal.cc $(LEAVEMEIN_HDRS)
 	$(CC) $(CPPFLAGS) -c -o signal.o test/signal.cc
 
 .PHONY: clean

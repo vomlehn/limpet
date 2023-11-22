@@ -161,7 +161,7 @@ static bool __leavemein_parse_runlist(struct __leavemein_params *params) {
 
             if (start == space) {
                 __leavemein_fail("Zero length test name invalid in %s\n",
-                    __LEAVEMEIN_RUNLIST);
+                    runlist_env);
             }
 
             __leavemein_add_testname(params, start, space);
@@ -198,7 +198,7 @@ static bool __leavemein_parse_params(struct __leavemein_params *params) {
         params->max_jobs = strtoul(max_jobs_env, &endptr, 0);
         if (*max_jobs_env == '\0' || *endptr != '\0') {
             __leavemein_fail("Invalid value specified for %s\n",
-                __LEAVEMEIN_MAX_JOBS);
+                max_jobs_env);
         }
     }
 
@@ -379,17 +379,33 @@ static bool __leavemein_must_run(const char *name) {
     return false;
 }
 
-static void __leavemein_report(struct __leavemein_test *test, const char *sep) {
-    printf("%s", sep);
-    __leavemein_printf("> Log for %s\n", test->name);
+static void __leavemein_print_test_header(struct __leavemein_test *test) {
+}
 
-    if (__leavemein_dump_log(test) == 0) {
-        __leavemein_printf("<empty log>\n");
-    }
-
+static void __leavemein_print_test_trailer(struct __leavemein_test *test) {
     __leavemein_printf("> Test complete: %s ", test->name);
     __leavemein_print_status(test);
     __leavemein_printf("\n");
+}
+
+static void __leavemein_print_final_trailer(const char *sep) {
+    
+    __leavemein_printf("%s", sep);
+    printf("> Ran %u tests: %u passed %u failed %u skipped\n",
+        __leavemein_started, __leavemein_passed, __leavemein_failed,
+        __leavemein_skipped);
+}
+
+static void __leavemein_print_log_header(struct __leavemein_test *test) {
+    __leavemein_printf("> Log for %s\n", test->name);
+}
+
+static void __leavemein_report(struct __leavemein_test *test, const char *sep) {
+    __leavemein_printf("%s", sep);
+    __leavemein_print_test_header(test);
+    __leavemein_print_log_header(test);
+    __leavemein_dump_log(test);
+    __leavemein_print_test_trailer(test);
 }
 
 static void __leavemein_report_on_done(size_t *reported, const char **sep) {
@@ -440,7 +456,9 @@ static void __leavemein_run(void) {
         }
 
         __leavemein_inc_started();
+        __leavemein_pre_start(p);
         __leavemein_start_one(p);
+        __leavemein_post_start(p);
 
         /*
          * Keep resource usage to a minimum by doing reporting here. It
@@ -449,16 +467,13 @@ static void __leavemein_run(void) {
         __leavemein_report_on_done(&reported, &sep);
     }
 
-printf("=================\n");
     /*
      * All tests have been started. Print reports for any that haven't
      * been reported.
      */
     __leavemein_report_on_done(&reported, &sep);
+    __leavemein_print_final_trailer(sep);
 
-    printf("%s> Ran %u tests: %u passed %u failed %u skipped\n", sep,
-        __leavemein_started, __leavemein_passed, __leavemein_failed,
-        __leavemein_skipped);
     __leavemein_exit(__leavemein_failed != 0);
 }
 #endif /* LEAVEMEIN */

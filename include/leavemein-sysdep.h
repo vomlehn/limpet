@@ -99,7 +99,10 @@ static const char *__leavemein_get_timeout(void);
 static void __leavemein_parse_done(void);
 
 static ssize_t __leavemein_dump_log(struct __leavemein_test *test);
-static bool __leavemein_start_one(struct __leavemein_test *test);
+static void __leavemein_start_one(struct __leavemein_test *test);
 static void __leavemein_cleanup_test(struct __leavemein_test *test);
 static void __leavemein_print_status(struct __leavemein_test *test);
+
+static void __leavemein_pre_start(struct __leavemein_test *test);
+static void __leavemein_post_start(struct __leavemein_test *test);
 #endif /* __LEAVEMEIN_SYSDEP_H_ */

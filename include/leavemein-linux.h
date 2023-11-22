@@ -525,6 +525,10 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
             break;
         }
     } while (proc_state != proc_reaped || io_state != io_eof);
+
+    if (close(pid_fd) == -1) {
+        __leavemein_fail_errno("close(pid_fd) failed");
+    }
 }
 
 /*
@@ -609,9 +613,8 @@ static void *__leavemein_run_one(void *arg) {
 /*
  * Run one test
  *  test - Pointer to a __leavemein_params for the test to run
- * Returns: true if the test was started, false otherwise
  */
-static bool __leavemein_start_one(struct __leavemein_test *test) {
+static void __leavemein_start_one(struct __leavemein_test *test) {
     int rc;
 
     rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one,
@@ -619,8 +622,6 @@ static bool __leavemein_start_one(struct __leavemein_test *test) {
     if (rc != 0) {
         __leavemein_fail_with(rc, "Failed to create thread");
     }
-
-    return true;
 }
 
 /*
@@ -735,4 +736,10 @@ static void __leavemein_print_status(__leavemein_test *test) {
         __leavemein_printf("unknown reason: %s", "FAILURE");
     }
 }   
+
+static void __leavemein_pre_start(struct __leavemein_test *test) {
+}
+
+static void __leavemein_post_start(struct __leavemein_test *test) {
+}
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

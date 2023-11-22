@@ -20,7 +20,7 @@ LEAVEMEIN_TEST(simple_good) {
 }
 
 LEAVEMEIN_TEST(simple_bad) {
-    printf("This is printed byt test simple_bad\n");
+    printf("This is printed by test simple_bad\n");
     leavemein_assert_eq(0, 1);
 }
 
