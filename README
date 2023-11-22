@@ -1,5 +1,5 @@
-Leavemein is a set of header files that make it easy to embed tests
-in C and C++ code and control their execution. The flag LEAVEMEIN is
+Limpet is a set of header files that make it easy to embed tests
+in C and C++ code and control their execution. The flag LIMPET is
 defined on the compiler command line to enable the tests. When it is
 not defined, no tests will be defined or run.
 
@@ -7,55 +7,55 @@ A Complete Example
 ==================
 
     /*
-     * Test for leavemein
+     * Test for limpet
      */
 
     #include <stdio.h>
     #include <stdlib.h>
     #include <unistd.h>
 
-    #include <leavemein.h>
+    #include <limpet.h>
 
     int main(int argc, char *argv[]) {
         fprintf(stderr, "Should never get to main()");
         exit(EXIT_FAILURE);
     }
 
-    #ifdef LEAVEMEIN
-    LEAVEMEIN_TEST(simple_good) {
+    #ifdef LIMPET
+    LIMPET_TEST(simple_good) {
         printf("This is printed by test simple_good\n");
-        leavemein_assert_eq(0, 0);
+        limpet_assert_eq(0, 0);
     }
 
-    LEAVEMEIN_TEST(simple_bad) {
+    LIMPET_TEST(simple_bad) {
         printf("This is printed by test simple_bad\n");
-        leavemein_assert_eq(0, 1);
+        limpet_assert_eq(0, 1);
     }
 
-    #endif /* LEAVEMEIN */
+    #endif /* LIMPET */
 
 To compile, use:
 
-    cc  -Iinclude -DLEAVEMEIN=LEAVEMEIN_LINUX -o simple test/simple.cc
+    cc  -Iinclude -DLIMPET=LIMPET_LINUX -o simple test/simple.cc
 
 To run, use:
 
     ./simple
 
-As implied in the example above, when build for LEAVEMEIN, the tests will
+As implied in the example above, when build for LIMPET, the tests will
 halt before main is called. This avoids the possibility of overlooking
 that test code is being included.
 
 Platform Support
 ================
-The symbol defined on the compilation command line, LEAVEMEIN, is set
-to a value to indicate which version of Leavemein is to be build. There
+The symbol defined on the compilation command line, LIMPET, is set
+to a value to indicate which version of Limpet is to be build. There
 are presently two possibilities:
 
-    LEAVEMEIN_LINUX             Build for Linux. This allows parallel test
+    LIMPET_LINUX             Build for Linux. This allows parallel test
                                 execution
 
-    LEAVEMEIN_SINGLE_THREADED   Build for Linux, but as a single-threaded
+    LIMPET_SINGLE_THREADED   Build for Linux, but as a single-threaded
                                 application. Tests are still started with
                                 fork() but this could be replaced by a
                                 different primative. This is intended to
@@ -66,12 +66,12 @@ Configuration Variables
 =======================
 Configuration variables are available to control execution:
 
-LEAVEMEIN_MAX_JOBS  When parallel execution is supported, this limits the
+LIMPET_MAX_JOBS  When parallel execution is supported, this limits the
                     number of tests run in parallel.
 
-LEAVEMEIN_RUNLIST   A space-separated list of tests to run.
+LIMPET_RUNLIST   A space-separated list of tests to run.
 
-LEAVEMEIN_TIMEOUT   A floating point value specifying the amount of time
+LIMPET_TIMEOUT   A floating point value specifying the amount of time
                     a test can be run before being killed. The default is
                     30 seconds. A value of zero means tests will not be
                     halted.
@@ -82,5 +82,5 @@ Values for configuration variables may be set in two ways:
     the above names can be set
 
 2.  If the platform doesn't take environment variables, the values can
-    be specified on the compiler command line, e.g. -DLEAVEMEIN_TIMEOUT=2.5
+    be specified on the compiler command line, e.g. -DLIMPET_TIMEOUT=2.5
     The single-threaded platform noted above uses this method.

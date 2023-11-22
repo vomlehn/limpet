@@ -1,5 +1,5 @@
 /*
- * Definitions for the Linux-based Leavemein
+ * Definitions for the Linux-based Limpet
  */
 
 #ifndef _LEAVEIN_TEST_LINUX_H_
@@ -36,7 +36,7 @@
  * mutex - Mutex guarding the pid element of this structure
  * cond - Condition variable guarding the pid element of this structure
  */
-struct __leavemein_sysdep {
+struct __limpet_sysdep {
     int                         log_fd;
     int                         raw_pty;
     int                         tty_pty;
@@ -46,12 +46,12 @@ struct __leavemein_sysdep {
     pid_t                       pid;
 };
 
-#include "leavemein-sysdep.h"
+#include "limpet-sysdep.h"
 
 /*
- * Value to use for __leavemein_sysdep initiatization
+ * Value to use for __limpet_sysdep initiatization
  */
-#define __LEAVEMEIN_SYSDEP_INIT         {   \
+#define __LIMPET_SYSDEP_INIT         {   \
         .log_fd = -1,                       \
         .raw_pty = -1,                      \
         .tty_pty = -1,                      \
@@ -61,10 +61,10 @@ struct __leavemein_sysdep {
         .pid = -1,                          \
     }
 
-#define __LEAVEMEIN_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
+#define __LIMPET_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
 
-static void __leavemein_exit(bool is_error) __attribute((noreturn));
-static void __leavemein_exit(bool is_error) {
+static void __limpet_exit(bool is_error) __attribute((noreturn));
+static void __limpet_exit(bool is_error) {
     close(0);
     close(1);
     close(2);
@@ -75,18 +75,18 @@ static void __leavemein_exit(bool is_error) {
 /*
  * print an error message like printf()
  */
-static void __leavemein_fail(const char *fmt, ...) __attribute((noreturn));
-static void __leavemein_fail(const char *fmt, ...) {
+static void __limpet_fail(const char *fmt, ...) __attribute((noreturn));
+static void __limpet_fail(const char *fmt, ...) {
     va_list ap;
 
     va_start(ap, fmt);  
     vfprintf(stderr, fmt, ap);
     va_end(ap);
 
-    __leavemein_exit(true);
+    __limpet_exit(true);
 }
 
-static void __leavemein_warn(const char *fmt, ...) {
+static void __limpet_warn(const char *fmt, ...) {
     va_list ap;
 
     printf("Warning: ");
@@ -95,7 +95,7 @@ static void __leavemein_warn(const char *fmt, ...) {
     va_end(ap);
 }
 
-static void __leavemein_printf(const char *fmt, ...) {
+static void __limpet_printf(const char *fmt, ...) {
     va_list ap;
 
     va_start(ap, fmt);  
@@ -103,142 +103,142 @@ static void __leavemein_printf(const char *fmt, ...) {
     va_end(ap);
 }
 
-#define __leavemein_fail_with(err, fmt, ...)    do {        \
-        __leavemein_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
+#define __limpet_fail_with(err, fmt, ...)    do {        \
+        __limpet_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
     } while (0)
 
-#define __leavemein_fail_errno(fmt, ...)    do {        \
-        __leavemein_fail_with(errno, fmt, ##__VA_ARGS__); \
+#define __limpet_fail_errno(fmt, ...)    do {        \
+        __limpet_fail_with(errno, fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define __leavemein_warn_with(err, fmt, ...)    do {        \
-        __leavemein_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
+#define __limpet_warn_with(err, fmt, ...)    do {        \
+        __limpet_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
     } while (0)
 
-#define __leavemein_warn_errno(fmt, ...)    do {        \
-        __leavemein_warn_with(errno, fmt, ##__VA_ARGS__); \
+#define __limpet_warn_errno(fmt, ...)    do {        \
+        __limpet_warn_with(errno, fmt, ##__VA_ARGS__); \
     } while (0)
 
 /*
  * Define initialization for a structure holding a mutex
  */
-#define __LEAVEMEIN_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
+#define __LIMPET_MUTEX_INIT   { .mutex = PTHREAD_MUTEX_INITIALIZER, }
 
-struct __leavemein_mutex {
+struct __limpet_mutex {
     pthread_mutex_t mutex;
 };
 
 /*
  * Define initialize for a struct with a conditional variable and a mutext
  */
-#define __LEAVEMEIN_COND_INIT   { .cond = PTHREAD_COND_INITIALIZER, }
+#define __LIMPET_COND_INIT   { .cond = PTHREAD_COND_INITIALIZER, }
 
-struct __leavemein_cond {
+struct __limpet_cond {
     pthread_cond_t  cond;
 };
 
-static void __leavemein_mutex_init(struct __leavemein_mutex *mutex) {
+static void __limpet_mutex_init(struct __limpet_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_init(&mutex->mutex, NULL);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to initialize mutex");
+        __limpet_fail_with(rc, "Failed to initialize mutex");
     }
 }
 
-static void __leavemein_mutex_lock(struct __leavemein_mutex *mutex) {
+static void __limpet_mutex_lock(struct __limpet_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_lock(&mutex->mutex);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to lock mutex");
+        __limpet_fail_with(rc, "Failed to lock mutex");
     }
 }
 
-static void __leavemein_mutex_unlock(struct __leavemein_mutex *mutex) {
+static void __limpet_mutex_unlock(struct __limpet_mutex *mutex) {
     int rc;
 
     rc = pthread_mutex_unlock(&mutex->mutex);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to unlock mutex");
+        __limpet_fail_with(rc, "Failed to unlock mutex");
     }
 }
 
-static void __leavemein_cond_init(struct __leavemein_cond *cond) {
+static void __limpet_cond_init(struct __limpet_cond *cond) {
     int rc;
 
     rc = pthread_cond_init(&cond->cond, NULL);
     if (rc != 0) {
-        __leavemein_fail_with(rc,
+        __limpet_fail_with(rc,
             "Failed to initialize conditional variable");
     }
 }
 
-static void __leavemein_cond_signal(struct __leavemein_cond *cond) {
+static void __limpet_cond_signal(struct __limpet_cond *cond) {
     int rc;
 
     rc = pthread_cond_signal(&cond->cond);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to signal conditional variable");
+        __limpet_fail_with(rc, "Failed to signal conditional variable");
     }
 }
 
-static void __leavemein_cond_wait(struct __leavemein_cond *cond,
-    struct __leavemein_mutex *mutex) {
+static void __limpet_cond_wait(struct __limpet_cond *cond,
+    struct __limpet_mutex *mutex) {
     int rc;
 
     rc = pthread_cond_wait(&cond->cond, &mutex->mutex);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to wait conditional variable");
+        __limpet_fail_with(rc, "Failed to wait conditional variable");
     }
 }
 
 /*
  * Environment variables available to configure executation are:
- * LEAVEMEIN_MAX_JOBS   Specifies the maximum number of threads running at a
+ * LIMPET_MAX_JOBS   Specifies the maximum number of threads running at a
  *      time. If this is not set or is zero, there is no limit
- * LEAVEMEIN_RUNLIST    A list of names of tests to be run, separated by
+ * LIMPET_RUNLIST    A list of names of tests to be run, separated by
  *      colons. If this is not set, all tests will be run. Note: If this is
  *      set to an empty string, no tests will be run
  */
-#define __LEAVEMEIN_MAX_JOBS  "LEAVEMEIN_MAX_JOBS"
-#define __LEAVEMEIN_RUNLIST   "LEAVEMEIN_RUNLIST"
-#define __LEAVEMEIN_TIMEOUT   "LEAVEMEIN_TIMEOUT"
+#define __LIMPET_MAX_JOBS  "LIMPET_MAX_JOBS"
+#define __LIMPET_RUNLIST   "LIMPET_RUNLIST"
+#define __LIMPET_TIMEOUT   "LIMPET_TIMEOUT"
 
 /*
  * List of all environment variables to eliminate before running the test
  */
-static const char *__leavemein_envvars[] = {
-    __LEAVEMEIN_MAX_JOBS,
-    __LEAVEMEIN_RUNLIST,
-    __LEAVEMEIN_TIMEOUT,
+static const char *__limpet_envvars[] = {
+    __LIMPET_MAX_JOBS,
+    __LIMPET_RUNLIST,
+    __LIMPET_TIMEOUT,
 };
 
-static const char *__leavemein_get_maxjobs(void) {
-    return getenv(__LEAVEMEIN_MAX_JOBS);
+static const char *__limpet_get_maxjobs(void) {
+    return getenv(__LIMPET_MAX_JOBS);
 }
 
-static const char *__leavemein_get_runlist(void) {
-    return getenv(__LEAVEMEIN_RUNLIST);
+static const char *__limpet_get_runlist(void) {
+    return getenv(__LIMPET_RUNLIST);
 }
 
-static const char *__leavemein_get_timeout(void) {
-    return getenv(__LEAVEMEIN_TIMEOUT);
+static const char *__limpet_get_timeout(void) {
+    return getenv(__LIMPET_TIMEOUT);
 }
 
 /*
  * Remove things in the environment specific to leavmein
  */
-static void __leavemein_parse_done(void)
+static void __limpet_parse_done(void)
 {
     size_t i;
 
-    for (i = 0; i < __LEAVEMEIN_ARRAY_SIZE(__leavemein_envvars); i++) {
+    for (i = 0; i < __LIMPET_ARRAY_SIZE(__limpet_envvars); i++) {
         const char *envvar;
-        envvar = __leavemein_envvars[i];
+        envvar = __limpet_envvars[i];
 
         if (unsetenv(envvar) == -1) {
-            __leavemein_fail("Unable to unset environment variable %s\n",
+            __limpet_fail("Unable to unset environment variable %s\n",
                 envvar);
         }
     }
@@ -248,33 +248,33 @@ static void __leavemein_parse_done(void)
  * Create a pseudoterminal so that the test can play with stdin, stdout,
  * and stderr.
  */
-static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep)
-    __LEAVEMEIN_UNUSED;
-static bool __leavemein_make_pty(struct __leavemein_sysdep *sysdep) {
+static bool __limpet_make_pty(struct __limpet_sysdep *sysdep)
+    __LIMPET_UNUSED;
+static bool __limpet_make_pty(struct __limpet_sysdep *sysdep) {
     struct termios termios;
     struct winsize winsize;
     int rc;
 
     rc = tcgetattr(0, &termios);
     if (rc == -1) {
-        __leavemein_fail_errno("Unable to get terminal characteristics");
+        __limpet_fail_errno("Unable to get terminal characteristics");
     }
 
     rc = ioctl(0, TIOCGWINSZ, &winsize);
     if (rc == -1) {
-        __leavemein_fail_errno("Unable to get windows size");
+        __limpet_fail_errno("Unable to get windows size");
     }
 
     rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios,
         &winsize);
     if (rc == -1) {
-        __leavemein_fail_errno("Unable to create pty");
+        __limpet_fail_errno("Unable to create pty");
     }
 
     return true;
 }
 
-static bool __leavemein_thread_setup(struct __leavemein_test *test) {
+static bool __limpet_thread_setup(struct __limpet_test *test) {
     static const char tmpfile_name_template[] = "/tmp/logfileXXXXXX";
     char tmpfile_name[sizeof(tmpfile_name_template)];
 
@@ -287,10 +287,10 @@ static bool __leavemein_thread_setup(struct __leavemein_test *test) {
     }
 
     if (test->sysdep.log_fd == -1) {
-        __leavemein_fail_errno("Unable to make log file");
+        __limpet_fail_errno("Unable to make log file");
     }
 
-    if (!__leavemein_make_pty(&test->sysdep)) {
+    if (!__limpet_make_pty(&test->sysdep)) {
         return false;
     }
 
@@ -300,27 +300,27 @@ static bool __leavemein_thread_setup(struct __leavemein_test *test) {
 /*
  * Set up the new test process
  */
-static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep)
-    __LEAVEMEIN_UNUSED;
-static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
+static void __limpet_setup_one(struct __limpet_sysdep *sysdep)
+    __LIMPET_UNUSED;
+static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
     if (dup2(sysdep->tty_pty, 0) == -1) {
-        __leavemein_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
+        __limpet_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
     }
     if (dup2(0, 1) == -1) {
-        __leavemein_fail_errno("dup2(%d, %d)", 0, 1);
+        __limpet_fail_errno("dup2(%d, %d)", 0, 1);
     }
     if (dup2(0, 2) == -1) {
-        __leavemein_fail_errno("dup2(%d, %d)", 0, 2);
+        __limpet_fail_errno("dup2(%d, %d)", 0, 2);
     }
 
     if (close(sysdep->tty_pty) == -1) {
-        __leavemein_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
+        __limpet_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
     }
     if (close(sysdep->raw_pty) == -1) {
-        __leavemein_fail_errno("close(raw_pty %d)", sysdep->raw_pty);
+        __limpet_fail_errno("close(raw_pty %d)", sysdep->raw_pty);
     }
     if (close(sysdep->log_fd) == -1) {
-        __leavemein_fail_errno("close(raw_pty %d)", sysdep->log_fd);
+        __limpet_fail_errno("close(raw_pty %d)", sysdep->log_fd);
     }
 }
     
@@ -331,9 +331,9 @@ static void __leavemein_setup_one(struct __leavemein_sysdep *sysdep) {
  *
  * Returns: The number of characters written or -1 on error.
  */
-static ssize_t __leavemein_copy_file(int in_fd, int out_fd)
-    __LEAVEMEIN_UNUSED;
-static ssize_t __leavemein_copy_file(int in_fd, int out_fd) {
+static ssize_t __limpet_copy_file(int in_fd, int out_fd)
+    __LIMPET_UNUSED;
+static ssize_t __limpet_copy_file(int in_fd, int out_fd) {
     char buf[4096];
     ssize_t zrc = 0;
     ssize_t total = 0;
@@ -357,7 +357,7 @@ static ssize_t __leavemein_copy_file(int in_fd, int out_fd) {
 /*
  * Copy output into the log and wait for the process to terminate
  */
-static void __leavemein_log_and_wait(struct __leavemein_test *test) {
+static void __limpet_log_and_wait(struct __limpet_test *test) {
     enum { io_read, io_write, io_eof } io_state;
     enum { proc_running, proc_killed, proc_reaped } proc_state;
     struct timeval timeout;
@@ -374,7 +374,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
         1000000);
     rc = gettimeofday(&abs_timeout, NULL);
     if (rc == -1) {
-        __leavemein_fail_errno("gettimeofday failed");
+        __limpet_fail_errno("gettimeofday failed");
     }
     timeradd(&abs_timeout, &timeout, &abs_timeout);
 
@@ -384,7 +384,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
      */
     pid_fd = syscall(SYS_pidfd_open, test->sysdep.pid, 0);
     if (pid_fd == -1) {
-        __leavemein_fail_errno("pidfd_open failed for pid %d",
+        __limpet_fail_errno("pidfd_open failed for pid %d",
             test->sysdep.pid);
     }
 
@@ -409,7 +409,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
 
             rc = gettimeofday(&now, NULL);
             if (rc == -1) {
-                __leavemein_fail("gettimeofday failed");
+                __limpet_fail("gettimeofday failed");
             }
             if (timercmp(&abs_timeout, &now, >)) {
                 timersub(&abs_timeout, &now, &delta_timeout);
@@ -447,7 +447,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
 
         rc = select(nfds, &rfds, &wfds, NULL, tv);
         if (rc == -1) {
-            __leavemein_fail_errno("Select failed");
+            __limpet_fail_errno("Select failed");
         }
 
         switch (proc_state) {
@@ -455,14 +455,14 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
             if (FD_ISSET(pid_fd, &rfds)) {
                 rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
                 if (rc == -1) {
-                    __leavemein_fail_errno("waitpid failed");
+                    __limpet_fail_errno("waitpid failed");
                 }
                 proc_state = proc_reaped;
             } else if (rc == 0) {
                 test->sysdep.timedout = true;
                 rc = kill(test->sysdep.pid, SIGKILL);
                 if (rc == -1) {
-                    __leavemein_warn("Unable to kill PID %d\n",
+                    __limpet_warn("Unable to kill PID %d\n",
                         test->sysdep.pid);
                 }
                 proc_state = proc_killed;
@@ -473,7 +473,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
             if (FD_ISSET(pid_fd, &rfds)) {
                 rc = waitpid(test->sysdep.pid, &test->sysdep.exit_status, 0);
                 if (rc == -1) {
-                    __leavemein_fail_errno("waitpid failed");
+                    __limpet_fail_errno("waitpid failed");
                 }
                 proc_state = proc_reaped;
             }
@@ -495,7 +495,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
                      * this
                      */
                     if (errno != EIO) {
-                        __leavemein_fail_errno("raw pty read failed");
+                        __limpet_fail_errno("raw pty read failed");
                     }
                     io_state = io_eof;
                     break;
@@ -515,7 +515,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
             if (FD_ISSET(test->sysdep.log_fd, &wfds)) {
                 zrc = write(test->sysdep.log_fd, buf, zrc);
                 if (zrc == -1) {
-                    __leavemein_fail_errno("log write failed");
+                    __limpet_fail_errno("log write failed");
                 }
                 io_state = io_read;
             }
@@ -527,7 +527,7 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
     } while (proc_state != proc_reaped || io_state != io_eof);
 
     if (close(pid_fd) == -1) {
-        __leavemein_fail_errno("close(pid_fd) failed");
+        __limpet_fail_errno("close(pid_fd) failed");
     }
 }
 
@@ -536,20 +536,20 @@ static void __leavemein_log_and_wait(struct __leavemein_test *test) {
  *
  * Returns true if there was something to print, false otherwise
  */
-static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
+static ssize_t __limpet_dump_log(struct __limpet_test *test) {
     ssize_t total;
 
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
-        __leavemein_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
+        __limpet_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
 
-    total = __leavemein_copy_file(test->sysdep.log_fd, 1);
+    total = __limpet_copy_file(test->sysdep.log_fd, 1);
     if (total == -1) {
-        __leavemein_fail_errno("Log dump failed");
+        __limpet_fail_errno("Log dump failed");
     }
 
     if (close(test->sysdep.log_fd) != 0) {
-        __leavemein_warn_errno("Close of log file failed");
+        __limpet_warn_errno("Close of log file failed");
     }
 
     return total;
@@ -558,27 +558,27 @@ static ssize_t __leavemein_dump_log(struct __leavemein_test *test) {
 /*
  * Run the test as a subprocess
  */
-static void *__leavemein_run_one(void *arg) __LEAVEMEIN_UNUSED;
-static void *__leavemein_run_one(void *arg) {
-    struct __leavemein_test *test = (struct __leavemein_test *)arg;
+static void *__limpet_run_one(void *arg) __LIMPET_UNUSED;
+static void *__limpet_run_one(void *arg) {
+    struct __limpet_test *test = (struct __limpet_test *)arg;
     pid_t pid;
 
-    __leavemein_thread_setup(test);
+    __limpet_thread_setup(test);
 
     if (fflush(stdout) == -1) {
-        __leavemein_fail_errno("fflush(stdout) failed");
+        __limpet_fail_errno("fflush(stdout) failed");
     }
 
     pid = fork();
     switch (pid) {
     case -1:
-        __leavemein_fail_errno("Fork failed");
+        __limpet_fail_errno("Fork failed");
         break;
 
     case 0:
-        __leavemein_setup_one(&test->sysdep);
+        __limpet_setup_one(&test->sysdep);
         (*test->func)();
-        __leavemein_exit(false);
+        __limpet_exit(false);
         break;
 
     default:
@@ -587,24 +587,24 @@ static void *__leavemein_run_one(void *arg) {
          * Set the process ID and let the wait begin
          */
         if (close(test->sysdep.tty_pty) == -1) {
-            __leavemein_fail_errno("close(test->tty_pty) failed");
+            __limpet_fail_errno("close(test->tty_pty) failed");
         }
         test->sysdep.pid = pid;
         break;
     }
 
-    __leavemein_log_and_wait(test);
+    __limpet_log_and_wait(test);
 
     if (test->sysdep.timedout) {
-        __leavemein_inc_failed();
-        __leavemein_enqueue_done(test);
+        __limpet_inc_failed();
+        __limpet_enqueue_done(test);
     } else if (!WIFEXITED(test->sysdep.exit_status) ||
         WEXITSTATUS(test->sysdep.exit_status) != 0) {
-            __leavemein_inc_failed();
-            __leavemein_enqueue_done(test);
+            __limpet_inc_failed();
+            __limpet_enqueue_done(test);
     } else {
-            __leavemein_inc_passed();
-            __leavemein_enqueue_done(test);
+            __limpet_inc_passed();
+            __limpet_enqueue_done(test);
     }
 
     return test;
@@ -612,93 +612,93 @@ static void *__leavemein_run_one(void *arg) {
 
 /*
  * Run one test
- *  test - Pointer to a __leavemein_params for the test to run
+ *  test - Pointer to a __limpet_params for the test to run
  */
-static void __leavemein_start_one(struct __leavemein_test *test) {
+static void __limpet_start_one(struct __limpet_test *test) {
     int rc;
 
-    rc = pthread_create(&test->sysdep.thread, NULL, __leavemein_run_one,
+    rc = pthread_create(&test->sysdep.thread, NULL, __limpet_run_one,
         test);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "Failed to create thread");
+        __limpet_fail_with(rc, "Failed to create thread");
     }
 }
 
 /*
  * Wait for a thread and clean things up
  */
-static void __leavemein_cleanup_test(struct __leavemein_test *test) {
+static void __limpet_cleanup_test(struct __limpet_test *test) {
     int rc;
 
     rc = pthread_join(test->sysdep.thread, NULL);
     if (rc != 0) {
-        __leavemein_fail_with(rc, "pthread_join failed");
+        __limpet_fail_with(rc, "pthread_join failed");
     }
 }
 
-#define __LEAVEMEIN_DEFINE_SIGNAME(signame) \
+#define __LIMPET_DEFINE_SIGNAME(signame) \
     {.number = SIG ## signame, .name = #signame}
 
-static void __leavemein_print_signame(int sig) {
+static void __limpet_print_signame(int sig) {
     static const struct {
         int         number;
         const char* name;
     } signames[] = {
-        __LEAVEMEIN_DEFINE_SIGNAME(ABRT),
-        __LEAVEMEIN_DEFINE_SIGNAME(ALRM),
-        __LEAVEMEIN_DEFINE_SIGNAME(BUS),
-        __LEAVEMEIN_DEFINE_SIGNAME(CHLD),
-        __LEAVEMEIN_DEFINE_SIGNAME(CLD),
-        __LEAVEMEIN_DEFINE_SIGNAME(CONT),
-        __LEAVEMEIN_DEFINE_SIGNAME(FPE),
-        __LEAVEMEIN_DEFINE_SIGNAME(HUP),
-        __LEAVEMEIN_DEFINE_SIGNAME(ILL),
-        __LEAVEMEIN_DEFINE_SIGNAME(INT),
-        __LEAVEMEIN_DEFINE_SIGNAME(IO),
-        __LEAVEMEIN_DEFINE_SIGNAME(IOT),
-        __LEAVEMEIN_DEFINE_SIGNAME(KILL),
-        __LEAVEMEIN_DEFINE_SIGNAME(PIPE),
-        __LEAVEMEIN_DEFINE_SIGNAME(POLL),
-        __LEAVEMEIN_DEFINE_SIGNAME(PROF),
-        __LEAVEMEIN_DEFINE_SIGNAME(PWR),
-        __LEAVEMEIN_DEFINE_SIGNAME(QUIT),
-        __LEAVEMEIN_DEFINE_SIGNAME(SEGV),
-        __LEAVEMEIN_DEFINE_SIGNAME(STKFLT),
-        __LEAVEMEIN_DEFINE_SIGNAME(STOP),
-        __LEAVEMEIN_DEFINE_SIGNAME(TSTP),
-        __LEAVEMEIN_DEFINE_SIGNAME(SYS),
-        __LEAVEMEIN_DEFINE_SIGNAME(TERM),
-        __LEAVEMEIN_DEFINE_SIGNAME(TRAP),
-        __LEAVEMEIN_DEFINE_SIGNAME(TTIN),
-        __LEAVEMEIN_DEFINE_SIGNAME(TTOU),
-        __LEAVEMEIN_DEFINE_SIGNAME(URG),
-        __LEAVEMEIN_DEFINE_SIGNAME(USR1),
-        __LEAVEMEIN_DEFINE_SIGNAME(USR2),
-        __LEAVEMEIN_DEFINE_SIGNAME(VTALRM),
-        __LEAVEMEIN_DEFINE_SIGNAME(XCPU),
-        __LEAVEMEIN_DEFINE_SIGNAME(XFSZ),
-        __LEAVEMEIN_DEFINE_SIGNAME(WINCH),
+        __LIMPET_DEFINE_SIGNAME(ABRT),
+        __LIMPET_DEFINE_SIGNAME(ALRM),
+        __LIMPET_DEFINE_SIGNAME(BUS),
+        __LIMPET_DEFINE_SIGNAME(CHLD),
+        __LIMPET_DEFINE_SIGNAME(CLD),
+        __LIMPET_DEFINE_SIGNAME(CONT),
+        __LIMPET_DEFINE_SIGNAME(FPE),
+        __LIMPET_DEFINE_SIGNAME(HUP),
+        __LIMPET_DEFINE_SIGNAME(ILL),
+        __LIMPET_DEFINE_SIGNAME(INT),
+        __LIMPET_DEFINE_SIGNAME(IO),
+        __LIMPET_DEFINE_SIGNAME(IOT),
+        __LIMPET_DEFINE_SIGNAME(KILL),
+        __LIMPET_DEFINE_SIGNAME(PIPE),
+        __LIMPET_DEFINE_SIGNAME(POLL),
+        __LIMPET_DEFINE_SIGNAME(PROF),
+        __LIMPET_DEFINE_SIGNAME(PWR),
+        __LIMPET_DEFINE_SIGNAME(QUIT),
+        __LIMPET_DEFINE_SIGNAME(SEGV),
+        __LIMPET_DEFINE_SIGNAME(STKFLT),
+        __LIMPET_DEFINE_SIGNAME(STOP),
+        __LIMPET_DEFINE_SIGNAME(TSTP),
+        __LIMPET_DEFINE_SIGNAME(SYS),
+        __LIMPET_DEFINE_SIGNAME(TERM),
+        __LIMPET_DEFINE_SIGNAME(TRAP),
+        __LIMPET_DEFINE_SIGNAME(TTIN),
+        __LIMPET_DEFINE_SIGNAME(TTOU),
+        __LIMPET_DEFINE_SIGNAME(URG),
+        __LIMPET_DEFINE_SIGNAME(USR1),
+        __LIMPET_DEFINE_SIGNAME(USR2),
+        __LIMPET_DEFINE_SIGNAME(VTALRM),
+        __LIMPET_DEFINE_SIGNAME(XCPU),
+        __LIMPET_DEFINE_SIGNAME(XFSZ),
+        __LIMPET_DEFINE_SIGNAME(WINCH),
     };
     size_t i;
 
-    for (i = 0; i < __LEAVEMEIN_ARRAY_SIZE(signames); i++) {
+    for (i = 0; i < __LIMPET_ARRAY_SIZE(signames); i++) {
         if (signames[i].number == sig) {
             break;
         }
     }
 
-    if (i == __LEAVEMEIN_ARRAY_SIZE(signames)) {
-        __leavemein_printf("signal unknown (%d)", sig);
+    if (i == __LIMPET_ARRAY_SIZE(signames)) {
+        __limpet_printf("signal unknown (%d)", sig);
     } else {
-        __leavemein_printf("signal SIG%s (%d)", signames[i].name, sig);
+        __limpet_printf("signal SIG%s (%d)", signames[i].name, sig);
     }
 }
 
-static void __leavemein_print_status(__leavemein_test *test) {
+static void __limpet_print_status(__limpet_test *test) {
     int status = test->sysdep.exit_status;
 
     if (test->sysdep.timedout) {
-        __leavemein_printf("timed out after %g seconds: FAILURE",
+        __limpet_printf("timed out after %g seconds: FAILURE",
             test->params->timeout);
     } else if (WIFEXITED(status)) {
         int exit_status;
@@ -706,40 +706,40 @@ static void __leavemein_print_status(__leavemein_test *test) {
         exit_status = WEXITSTATUS(status);
 
         if (exit_status == 0) {
-            __leavemein_printf("exit code %d: SUCCESS", exit_status);
+            __limpet_printf("exit code %d: SUCCESS", exit_status);
         } else {
-            __leavemein_printf("exit code %d: FAILURE", exit_status);
+            __limpet_printf("exit code %d: FAILURE", exit_status);
         }
     } else if (WIFSIGNALED(status)) {
         int sig;
         const char *core_dumped;
 
         sig = WTERMSIG(status);
-        __leavemein_print_signame(sig);
+        __limpet_print_signame(sig);
 #ifdef WCOREDUMP
         core_dumped = WCOREDUMP(status) ? " (core dumped)" : "";
 #else
         core_dumped = "";
 #endif
 
-        __leavemein_printf("%s: FAILURE", core_dumped);
+        __limpet_printf("%s: FAILURE", core_dumped);
     } else if (WIFSTOPPED(status)) {
         int sig;
 
         sig = WSTOPSIG(status);
-        __leavemein_printf("stopped, ");
-        __leavemein_print_signame(sig);
-        __leavemein_printf(": FAILURE");
+        __limpet_printf("stopped, ");
+        __limpet_print_signame(sig);
+        __limpet_printf(": FAILURE");
     } else if (WIFCONTINUED(status)) {
-        __leavemein_printf("continued: %s\n", "FAILURE");
+        __limpet_printf("continued: %s\n", "FAILURE");
     } else {
-        __leavemein_printf("unknown reason: %s", "FAILURE");
+        __limpet_printf("unknown reason: %s", "FAILURE");
     }
 }   
 
-static void __leavemein_pre_start(struct __leavemein_test *test) {
+static void __limpet_pre_start(struct __limpet_test *test) {
 }
 
-static void __leavemein_post_start(struct __leavemein_test *test) {
+static void __limpet_post_start(struct __limpet_test *test) {
 }
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

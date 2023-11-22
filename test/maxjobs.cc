@@ -1,12 +1,12 @@
 /*
- * Test for leavemein
+ * Test for limpet
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <leavemein.h>
+#include <limpet.h>
 
 static const int sleep_time = 2;
 
@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
 }
 
-#ifdef LEAVEMEIN
+#ifdef LIMPET
 static void x(const char *name) {
     printf("This is printed by test %s\n", name);
     printf("Two messages should print after a %d second delay, the third\n"
@@ -23,15 +23,15 @@ static void x(const char *name) {
     sleep(sleep_time);
 }
 
-LEAVEMEIN_TEST(max_jobs1) {
+LIMPET_TEST(max_jobs1) {
     x(__func__);
 }
 
-LEAVEMEIN_TEST(max_jobs2) {
+LIMPET_TEST(max_jobs2) {
     x(__func__);
 }
 
-LEAVEMEIN_TEST(max_jobs3) {
+LIMPET_TEST(max_jobs3) {
     x(__func__);
 }
-#endif /* LEAVEMEIN */
+#endif /* LIMPET */

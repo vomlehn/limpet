@@ -5,11 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <leavemein.h>
+#include <limpet.h>
 
-#ifdef LEAVEMEIN
-LEAVEMEIN_TEST(two_files2) {
-    leavemein_assert_eq(0, 0);
+#ifdef LIMPET
+LIMPET_TEST(two_files2) {
+    limpet_assert_eq(0, 0);
 }
-#endif /* LEAVEMEIN */
+#endif /* LIMPET */
 
