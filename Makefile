@@ -9,6 +9,18 @@ SHELL = /bin/bash
 VERSION=LINUX
 
 BIN=bin
+SRC=src
+
+# Sent to "c" to compiler for C, "cc" to compiler for C++
+LANG = c
+
+ifeq "$(LANG)" "cc"
+SFX = cc
+else ifeq "$(LANG)" "c"
+SFX = c
+else
+$(error LANG must be set to "cc" or "c")
+endif
 
 # Flags for various versions
 INCS_LINUX = include/limpet-linux.h
@@ -80,41 +92,44 @@ test: $(TEST_LIST)
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/maxjobs.o: test/maxjobs.cc $(LIMPET_HDRS)
+$(BIN)/maxjobs.o: $(SRC)/maxjobs.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
 
 $(BIN)/signal: $(BIN)/signal.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/signal.o: test/signal.cc $(LIMPET_HDRS)
+$(BIN)/signal.o: $(SRC)/signal.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/simple: $(BIN)/simple.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/simple.o: test/simple.cc $(LIMPET_HDRS)
+$(BIN)/simple.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/skip: $(BIN)/skip.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/skip.o: test/skip.cc $(LIMPET_HDRS)
+$(BIN)/skip.o: $(SRC)/skip.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/timeout: $(BIN)/timeout.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/timeout.o: test/timeout.cc $(LIMPET_HDRS)
+$(BIN)/timeout.o: $(SRC)/timeout.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/two-files: $(BIN)/two-files-main.o $(BIN)/two-files-sub.o
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/two-files-main.o: test/two-files-main.cc $(LIMPET_HDRS)
+$(BIN)/two-files-main.o: $(SRC)/two-files-main.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/two-files-sub.o: test/two-files-sub.cc $(LIMPET_HDRS)
+$(BIN)/two-files-sub.o: $(SRC)/two-files-sub.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+$(SRC)/%.$(SFX): test/%.cc
+	cp $^ $@
 
 .PHONY: clean
 clean:
