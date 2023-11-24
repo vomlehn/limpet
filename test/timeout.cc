@@ -9,7 +9,7 @@
 #include <limpet.h>
 
 int main(int argc, char *argv[]) {
-    fprintf(stderr, "Should never get to main()");
+    fprintf(stderr, "Should never get to main()\n");
     exit(EXIT_FAILURE);
 }
 

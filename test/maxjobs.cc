@@ -11,7 +11,7 @@
 static const int sleep_time = 2;
 
 int main(int argc, char *argv[]) {
-    fprintf(stderr, "Should never get to main()");
+    fprintf(stderr, "Should never get to main()\n");
     exit(EXIT_FAILURE);
 }
 

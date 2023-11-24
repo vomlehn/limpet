@@ -64,20 +64,21 @@
  * the user's test and then linking it into a list for later processing.
  */
 #define LIMPET_TEST(testname) \
-    static void __limpet_test_ ## testname(void)         \
-        __attribute((constructor(__LIMPET_SETUP_PRI)));  \
+    static void __limpet_test_ ## testname(void)            \
+        __attribute((constructor(__LIMPET_SETUP_PRI)));     \
     static void testname(void);                             \
-    static void __limpet_test_ ## testname(void) {       \
-        static struct __limpet_test common = {           \
+    static void __limpet_test_ ## testname(void) {          \
+        static struct __limpet_test common = {              \
             .next = NULL,                                   \
             .done = NULL,                                   \
             .skipped = false,                               \
             .name = #testname,                              \
             .func = testname,                               \
-            .params = &__limpet_params,                  \
-            .sysdep = __LIMPET_SYSDEP_INIT,              \
+            .params = &__limpet_params,                     \
+            .sysdep = __LIMPET_SYSDEP_INIT,                 \
         };                                                  \
-        __limpet_enqueue_test(&common);                  \
+printf("Running test %s\n", #testname); \
+        __limpet_enqueue_test(&common);                     \
     }                                                       \
     void testname(void)
 
@@ -432,6 +433,7 @@ static void __limpet_run(void) {
     const char *sep;
     size_t reported;
 
+printf("Running limpet\n");
     __limpet_mutex_init(&__limpet_statistics_mutex);
     __limpet_cond_init(&__limpet_statistics_cond);
     __limpet_parse_params(&__limpet_params);
