@@ -19,7 +19,7 @@ INCS_SINGLE_THREADED = include/limpet-single-threaded.h
 CPPFLAGS_SINGLE_THREADED = -DLIMPET=LIMPET_SINGLE_THREADED
 TESTS_LINUX = LIMPET_MAX_JOBS="1":maxjobs
 
-CPPFLAGS := $(CPPFLAGS_$(CPPFLAGS_LINE))
+CPPFLAGS := $(CPPFLAGS_$(VERSION))
 CPPFLAGS += -g -ggdb
 CPPFLAGS += -Wall -Wextra -Werror
 CPPFLAGS += -Wno-unused-parameter
@@ -66,20 +66,22 @@ test: $(TEST_LIST)
 				-e 's/^[^:]*$$/$(BIN)\/&/' \
 				-e 's/^\(.*\):/\1 $(BIN)\//g' \
 			); \
-		echo "Running test $$TEST_NAME"; \
-		echo "Test command $$TEST_CMD"; \
+		running_string="Running test $$TEST_NAME"; \
+		echo "$$running_string"; \
+        echo "$$running_string" | sed 's/./=/g'; \
 		if eval $$TEST_CMD; then \
 			echo "No failures found"; \
 		else \
 			echo "Failures were found"; \
 		fi; \
+		SEP='\n'; \
 	done
 
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/maxjobs.o: test/maxjobs.cc $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$<)
+	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
 
 $(BIN)/signal: $(BIN)/signal.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
