@@ -5,6 +5,10 @@
 #ifndef _LEAVEIN_TEST_LINUX_H_
 #define _LEAVEIN_TEST_LINUX_H_
 
+#ifndef __USE_GNU
+#define __USE_GNU                   # Get O_TMPFILE defined
+#endif
+
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <sys/syscall.h>
@@ -694,7 +698,7 @@ static void __limpet_print_signame(int sig) {
     }
 }
 
-static void __limpet_print_status(__limpet_test *test) {
+static void __limpet_print_status(struct __limpet_test *test) {
     int status = test->sysdep.exit_status;
 
     if (test->sysdep.timedout) {

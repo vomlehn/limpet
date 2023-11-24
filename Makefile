@@ -11,12 +11,17 @@ VERSION=LINUX
 BIN=bin
 SRC=src
 
-# Sent to "c" to compiler for C, "cc" to compiler for C++
-LANG = c
+# Be sure bin and src directories are created
+$(shell mkdir -p $(BIN) $(SRC))
 
-ifeq "$(LANG)" "cc"
+# Sent to "C" to compiler for C, "C++" to compiler for C++
+LANG = C++
+
+ifeq "$(LANG)" "C++"
+CC = g++
 SFX = cc
-else ifeq "$(LANG)" "c"
+else ifeq "$(LANG)" "C"
+CC = gcc
 SFX = c
 else
 $(error LANG must be set to "cc" or "c")
@@ -133,4 +138,7 @@ $(SRC)/%.$(SFX): test/%.cc
 
 .PHONY: clean
 clean:
-	rm -f bin/*
+	rm -f $(BIN)/* $(SRC)/*
+
+clobber: clean
+	rmdir $(BIN) $(SRC)
