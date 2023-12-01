@@ -77,7 +77,6 @@
             .params = &__limpet_params,                     \
             .sysdep = __LIMPET_SYSDEP_INIT,                 \
         };                                                  \
-printf("Running test %s\n", #testname); \
         __limpet_enqueue_test(&common);                     \
     }                                                       \
     void testname(void)
@@ -86,16 +85,21 @@ printf("Running test %s\n", #testname); \
     do { if ((a) != (b)) __limpet_exit(true); } while (0)
 #define limpet_assert_ne(a, b)    \
     do { if ((a) != (b)) __limpet_exit(true); } while (0)
-
-/*
- * String used to separate reports
- */
-#define REPORT_SEP      "---\n"
     
 /*
  * These definitions are intended for internal use by the limpet code
  * ===================================================================
  */
+
+/*
+ * String used to separate reports
+ */
+#define __LIMPET_REPORT_SEP      "---\n"
+
+/*
+ * String used before printing limpet output.
+ */
+#define __LIMPET_MARKER "> "
 
 /*
  * Parsed parameter information
@@ -380,44 +384,57 @@ static bool __limpet_must_run(const char *name) {
     return false;
 }
 
-static void __limpet_print_test_header(struct __limpet_test *test) {
+/*
+ * Call before printing each test's information
+ */
+static void __limpet_print_test_header(struct __limpet_test *test,
+    const char *sep) {
+    __limpet_printf("%s", sep);
+    __limpet_printf("%sLog for %s\n", __LIMPET_MARKER, test->name);
 }
 
+/*
+ * Call after printing each test
+ */
 static void __limpet_print_test_trailer(struct __limpet_test *test) {
-    __limpet_printf("> Test complete: %s ", test->name);
+    __limpet_printf("%sTest complete: %s ", __LIMPET_MARKER, test->name);
     __limpet_print_status(test);
     __limpet_printf("\n");
 }
 
+/*
+ * Call after printing all test information
+ */
 static void __limpet_print_final_trailer(const char *sep) {
     
     __limpet_printf("%s", sep);
-    printf("> Ran %u tests: %u passed %u failed %u skipped\n",
-        __limpet_started, __limpet_passed, __limpet_failed,
+    printf("%sRan %u tests: %u passed %u failed %u skipped\n",
+        __LIMPET_MARKER, __limpet_started, __limpet_passed, __limpet_failed,
         __limpet_skipped);
 }
 
-static void __limpet_print_log_header(struct __limpet_test *test) {
-    __limpet_printf("> Log for %s\n", test->name);
-}
+/*
+ * Called to print a report on any tests pending in the queue of completed
+ * tests.
+ *
+ * Returns: true if it printed something, false otherwise.
+ */
+static bool __limpet_report_on_done(size_t *reported, const char *sep) {
+    bool printed_something = false;
 
-static void __limpet_report(struct __limpet_test *test, const char *sep) {
-    __limpet_printf("%s", sep);
-    __limpet_print_test_header(test);
-    __limpet_print_log_header(test);
-    __limpet_dump_log(test);
-    __limpet_print_test_trailer(test);
-}
-
-static void __limpet_report_on_done(size_t *reported, const char **sep) {
     for (; *reported != __limpet_get_started(); (*reported)++) {
         struct __limpet_test *p;
 
         p = __limpet_dequeue_done();
         __limpet_cleanup_test(p);
-        __limpet_report(p, *sep);
-        *sep = REPORT_SEP;
+
+        printed_something |= __limpet_pre_stored(p, sep);
+        __limpet_dump_stored_log(p);
+        __limpet_post_stored(p);
+
     }
+
+    return printed_something;
 }
 
 /*
@@ -458,7 +475,11 @@ printf("Running limpet\n");
         }
 
         __limpet_inc_started();
-        __limpet_pre_start(p);
+
+        if (__limpet_pre_start(p, sep)) {
+            sep = __LIMPET_REPORT_SEP;
+        }
+
         __limpet_start_one(p);
         __limpet_post_start(p);
 
@@ -466,14 +487,19 @@ printf("Running limpet\n");
          * Keep resource usage to a minimum by doing reporting here. It
          * doesn't need to be exact, so no fancy sychronization.
          */
-        __limpet_report_on_done(&reported, &sep);
+        if (__limpet_report_on_done(&reported, sep)) {
+            sep = __LIMPET_REPORT_SEP;
+        }
     }
 
     /*
      * All tests have been started. Print reports for any that haven't
      * been reported.
      */
-    __limpet_report_on_done(&reported, &sep);
+    if (__limpet_report_on_done(&reported, sep)) {
+        sep = __LIMPET_REPORT_SEP;
+    }
+
     __limpet_print_final_trailer(sep);
 
     __limpet_exit(__limpet_failed != 0);

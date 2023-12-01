@@ -301,29 +301,44 @@ static bool __limpet_thread_setup(struct __limpet_test *test) {
 }
 
 /*
- * Set up the new test process
+ * Running in the context of a test child process, set up a new test
+ * process
  */
 static void __limpet_setup_one(struct __limpet_sysdep *sysdep)
     __LIMPET_UNUSED;
 static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
+    /*
+     * We no longer need to do anything with the log file or raw
+     * raw pseudoterminal file descriptors
+     */
+    if (close(sysdep->log_fd) == -1) {
+        __limpet_fail_errno("close(log_fd %d)", sysdep->log_fd);
+    }
+
+    if (close(sysdep->raw_pty) == -1) {
+        __limpet_fail_errno("close(child raw_pty %d)", sysdep->raw_pty);
+    }
+
     if (dup2(sysdep->tty_pty, 0) == -1) {
         __limpet_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
     }
+
+    /* Now we don't need the original pesudoterminal file descriptor, either
+     *
+     */
+
+    if (close(sysdep->tty_pty) == -1) {
+        __limpet_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
+    }
+
+    /*
+     * Set up stdout and stderr
+     */
     if (dup2(0, 1) == -1) {
         __limpet_fail_errno("dup2(%d, %d)", 0, 1);
     }
     if (dup2(0, 2) == -1) {
         __limpet_fail_errno("dup2(%d, %d)", 0, 2);
-    }
-
-    if (close(sysdep->tty_pty) == -1) {
-        __limpet_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
-    }
-    if (close(sysdep->raw_pty) == -1) {
-        __limpet_fail_errno("close(raw_pty %d)", sysdep->raw_pty);
-    }
-    if (close(sysdep->log_fd) == -1) {
-        __limpet_fail_errno("close(raw_pty %d)", sysdep->log_fd);
     }
 }
     
@@ -532,6 +547,10 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
     if (close(pid_fd) == -1) {
         __limpet_fail_errno("close(pid_fd) failed");
     }
+
+    if (close(test->sysdep.raw_pty) == -1) {
+        __limpet_fail_errno("close(parent raw_pty) failed");
+    }
 }
 
 /*
@@ -539,7 +558,7 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
  *
  * Returns true if there was something to print, false otherwise
  */
-static ssize_t __limpet_dump_log(struct __limpet_test *test) {
+static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
     ssize_t total;
 
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
@@ -639,9 +658,24 @@ static void __limpet_cleanup_test(struct __limpet_test *test) {
     }
 }
 
-static void __limpet_pre_start(struct __limpet_test *test) {
+static bool __limpet_pre_start(struct __limpet_test *test,
+    const char *sep) {
+    return false;
 }
 
 static void __limpet_post_start(struct __limpet_test *test) {
+}
+
+/*
+ * Print a string right before the test starts
+ */
+static bool __limpet_pre_stored(struct __limpet_test *test,
+    const char *sep) {
+    __limpet_print_test_header(test, sep);
+    return true;
+}
+
+static void __limpet_post_stored(struct __limpet_test *test) {
+    __limpet_print_test_trailer(test);
 }
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

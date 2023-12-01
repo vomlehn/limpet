@@ -103,12 +103,30 @@ static const char *__limpet_get_timeout(void);
 
 static void __limpet_parse_done(void);
 
-static ssize_t __limpet_dump_log(struct __limpet_test *test);
+static ssize_t __limpet_dump_stored_log(struct __limpet_test *test);
 static void __limpet_start_one(struct __limpet_test *test);
 static void __limpet_cleanup_test(struct __limpet_test *test);
 static void __limpet_print_status(struct __limpet_test *test);
 
-static void __limpet_pre_start(struct __limpet_test *test);
+/*
+ * Called before and after starting a test. If single threaded, log output
+ * will be printed directly and will appear between the calls
+ */
+static bool __limpet_pre_start(struct __limpet_test *test, const char *sep);
 static void __limpet_post_start(struct __limpet_test *test);
+
+/*
+ * Called before and after printing stored log data. The log data will be
+ * dumped between these
+ */
+static bool __limpet_pre_stored(struct __limpet_test *test,
+    const char *sep);
+static void __limpet_post_stored(struct __limpet_test *test);
+
+/*
+ * Forward definitions
+ */
+static void __limpet_print_test_header(struct __limpet_test *test,
+    const char *sep);
 static void __limpet_print_test_trailer(struct __limpet_test *test);
 #endif /* __LIMPET_SYSDEP_H_ */

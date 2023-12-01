@@ -140,7 +140,11 @@ static const char *__limpet_get_timeout(void) {
 static void __limpet_parse_done() {
 }
 
-static ssize_t __limpet_dump_log(struct __limpet_test *test) {
+/*
+ * We don't store the log, so nothing to do other than report we printed
+ * the log.
+ */
+static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
     return 1;
 }
 
@@ -268,11 +272,24 @@ static void __limpet_start_one(struct __limpet_test *test) {
 static void __limpet_cleanup_test(struct __limpet_test *test) {
 }
 
-static void __limpet_pre_start(struct __limpet_test *test) {
-    printf("PRE_START\n");
+/*
+ * Print a string right before the test starts
+ */
+static bool __limpet_pre_start(struct __limpet_test *test,
+    const char *sep) {
+    __limpet_print_test_header(test, sep);
+    return true;
 }
 
 static void __limpet_post_start(struct __limpet_test *test) {
     __limpet_print_test_trailer(test);
+}
+
+static bool __limpet_pre_stored(struct __limpet_test *test,
+    const char *sep) {
+    return false;
+}
+
+static void __limpet_post_stored(struct __limpet_test *test) {
 }
 #endif /* _LIMPET_SINGLE_THREADED_H_ */
