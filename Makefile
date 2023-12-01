@@ -28,13 +28,16 @@ $(error LANG must be set to "cc" or "c")
 endif
 
 # Flags for various versions
+# Linux configuration
 INCS_LINUX = include/limpet-linux.h
 CPPFLAGS_LINUX = -DLIMPET=LIMPET_LINUX
 TESTS_LINUX = LIMPET_MAX_JOBS="2":maxjobs
 
+# Linux single-threaded configuration, a good starting point for embedded
+# use
 INCS_SINGLE_THREADED = include/limpet-single-threaded.h
 CPPFLAGS_SINGLE_THREADED = -DLIMPET=LIMPET_SINGLE_THREADED
-TESTS_LINUX = LIMPET_MAX_JOBS="1":maxjobs
+TESTS_SINGLE_THREADED = LIMPET_MAX_JOBS="1":maxjobs
 
 CPPFLAGS := $(CPPFLAGS_$(VERSION))
 CPPFLAGS += -g -ggdb
@@ -60,7 +63,6 @@ TESTS = $(COMMON_TESTS) $(TESTS_$(VERSION))
 
 ECHO_TESTS = declare -a tests; \
 	tests=($(TESTS)); \
-    echo "$${tests[@]}"; \
     for test in "$${tests[@]}"; do \
         echo "$$test"; \
     done
