@@ -23,6 +23,7 @@ struct __limpet_sysdep {
 };
 
 #include "limpet-sysdep.h"
+#include "limpet-posix.h"
 
 #define __LIMPET_STRINGIZE(token)    #token
 
@@ -267,14 +268,11 @@ static void __limpet_start_one(struct __limpet_test *test) {
 static void __limpet_cleanup_test(struct __limpet_test *test) {
 }
 
-static void __limpet_print_status(struct __limpet_test *test) {
-}
-
 static void __limpet_pre_start(struct __limpet_test *test) {
     printf("PRE_START\n");
 }
 
 static void __limpet_post_start(struct __limpet_test *test) {
-    printf("PRE_START\n");
+    __limpet_print_test_trailer(test);
 }
 #endif /* _LIMPET_SINGLE_THREADED_H_ */

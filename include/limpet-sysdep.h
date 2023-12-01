@@ -14,6 +14,11 @@
 #define __LIMPET_SYSDEP_H_
 
 /*
+ * Number of elements in array a.
+ */
+#define __LIMPET_ARRAY_SIZE(a)   (sizeof(a) / sizeof ((a)[0]))
+
+/*
  * GNU C++ seems to think some functions are unused, even though they aren't.
  * This is used to supress the error messages.
  */
@@ -105,4 +110,5 @@ static void __limpet_print_status(struct __limpet_test *test);
 
 static void __limpet_pre_start(struct __limpet_test *test);
 static void __limpet_post_start(struct __limpet_test *test);
+static void __limpet_print_test_trailer(struct __limpet_test *test);
 #endif /* __LIMPET_SYSDEP_H_ */
