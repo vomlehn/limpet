@@ -2,6 +2,8 @@
  * Definitions for single-threaded limpet. Although this uses POSIX
  * primitives to run the test, it can serve as an example of how to test
  * an embedded system.
+ *
+ * Parameters can
  */
 
 #ifndef _LIMPET_SINGLE_THREADED_H_
@@ -67,7 +69,7 @@ static void __limpet_cond_wait(struct __limpet_cond *cond,
  * Define the following after #including limpet-sysdep.h
  */
 static const char *__limpet_get_maxjobs(void) {
-#ifdef __LIMPET_MAX_JOBS
+#ifdef LIMPET_MAX_JOBS
     return __LIMPET_STRINGIZE(LIMPET_MAX_JOBS);
 #else
     return NULL;
@@ -83,7 +85,7 @@ static const char *__limpet_get_runlist(void) {
 }
 
 static const char *__limpet_get_timeout(void) {
-#ifdef __LIMPET_TIMEOUT
+#ifdef LIMPET_TIMEOUT
     return __LIMPET_STRINGIZE(LIMPET_TIMEOUT);
 #else
     return NULL;

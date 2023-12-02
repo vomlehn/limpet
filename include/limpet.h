@@ -245,6 +245,9 @@ struct __limpet_test *__limpet_done __attribute((common));
 struct __limpet_mutex __limpet_done_mutex __attribute((common));
 struct __limpet_cond __limpet_done_cond __attribute((common));
 
+/*
+ * Add a test to the list of completed tests
+ */
 static void __limpet_enqueue_done(struct __limpet_test *test) {
     __limpet_mutex_lock(&__limpet_done_mutex);
 
@@ -255,6 +258,9 @@ static void __limpet_enqueue_done(struct __limpet_test *test) {
     __limpet_mutex_unlock(&__limpet_done_mutex);
 }
 
+/*
+ * Wait until a test completes, then remove it from the list and return it
+ */
 static struct __limpet_test *__limpet_dequeue_done(void) {
     struct __limpet_test *test;
 
@@ -431,7 +437,6 @@ static bool __limpet_report_on_done(size_t *reported, const char *sep) {
         printed_something |= __limpet_pre_stored(p, sep);
         __limpet_dump_stored_log(p);
         __limpet_post_stored(p);
-
     }
 
     return printed_something;

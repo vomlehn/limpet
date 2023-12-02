@@ -39,11 +39,15 @@ INCS_SINGLE_THREADED = include/limpet-single-threaded.h
 CPPFLAGS_SINGLE_THREADED = -DLIMPET=LIMPET_SINGLE_THREADED
 TESTS_SINGLE_THREADED = LIMPET_MAX_JOBS="1":maxjobs
 
+# Set up configuration info
 CPPFLAGS := $(CPPFLAGS_$(VERSION))
 CPPFLAGS += -g -ggdb
 CPPFLAGS += -Wall -Wextra -Werror
 CPPFLAGS += -Wno-unused-parameter
 CPPFLAGS += -Iinclude
+
+ACTUAL= actual
+CANONICAL = test/canonical
 
 INCS := include/limpet.h include/limpet-sysdep.h
 INCS += $(INCS_$(VERSION))
@@ -88,13 +92,40 @@ test: $(TEST_LIST)
 		running_string="Running test $$TEST_NAME"; \
 		echo "$$running_string"; \
         echo "$$running_string" | sed 's/./=/g'; \
-		if eval $$TEST_CMD; then \
+		if eval "$$TEST_CMD | \
+			test/parse-test.sh $$TEST_NAME $(ACTUAL)"; then \
 			echo "No failures found"; \
 		else \
 			echo "Failures were found"; \
 		fi; \
 		SEP='\n'; \
-	done
+	done; \
+	echo "Done testing"
+	@echo "Starting comparison"; \
+	canonicals=$$(ls $(CANONICAL) | xargs -n1 basename); \
+	actuals=$$(ls $(ACTUAL) | xargs -n1 basename); \
+	n_canonicals="$$(echo "$$canonicals" | wc -w)"; \
+    n_actuals="$$(echo "$$actuals" | wc -w)"; \
+	if [ $$n_canonicals -ne $$n_actuals ]; then \
+	    echo "Different number of canonical and actual files" 1>&2; \
+	    exit 1; \
+	fi; \
+	errors=0; \
+	for file in $$canonicals; do \
+		actual=$(ACTUAL)/$$file; \
+		canonical=$(CANONICAL)/$$file; \
+		echo "Compare expected output with actual in $$actual"; \
+		diff $$canonical $$actual; \
+		if [ $$? -ne 0 ]; then \
+			errors=$$((errors + 1)); \
+		fi; \
+	done; \
+	if [ $$errors -eq 0 ]; then \
+		echo "Tests PASSED"; \
+	else \
+		echo "Tests FAILED"; \
+		exit 1; \
+	fi
 
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)

@@ -1,0 +1,6 @@
+> Log for max_jobs3
+This is printed by test max_jobs3
+Two messages should print after a 2 second delay, the third
+after an additional 2 second delay
+> Test complete: max_jobs3 exit code 0: SUCCESS
+---

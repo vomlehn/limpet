@@ -68,10 +68,6 @@ struct __limpet_sysdep {
 
 static void __limpet_exit(bool is_error) __attribute((noreturn));
 static void __limpet_exit(bool is_error) {
-    close(0);
-    close(1);
-    close(2);
-
     exit(is_error ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
@@ -517,6 +513,12 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
         __limpet_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
+
+    /*
+     * Before writing to stdout with the copy file function, we need to
+     * flush the stdout from stdio
+     */
+    fflush(stdout);
 
     total = __limpet_copy_file(test->sysdep.log_fd, 1);
     if (total == -1) {

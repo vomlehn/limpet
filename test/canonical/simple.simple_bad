@@ -1,0 +1,4 @@
+> Log for simple_bad
+This is printed by test simple_bad
+> Test complete: simple_bad exit code 1: FAILURE
+---
