@@ -111,4 +111,52 @@ static void __limpet_print_status(struct __limpet_test *test) {
         __limpet_printf("unknown reason: %s", "FAILURE");
     }
 }   
+
+/*
+ * Printing and exit functions
+ */
+#define __limpet_fail_with(err, fmt, ...)    do {        \
+        __limpet_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
+    } while (0)
+
+#define __limpet_fail_errno(fmt, ...)    do {        \
+        __limpet_fail_with(errno, fmt, ##__VA_ARGS__); \
+    } while (0)
+
+#define __limpet_warn_with(err, fmt, ...)    do {        \
+        __limpet_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
+    } while (0)
+
+#define __limpet_warn_errno(fmt, ...)    do {        \
+        __limpet_warn_with(errno, fmt, ##__VA_ARGS__); \
+    } while (0)
+
+static void __limpet_fail(const char *fmt, ...) __attribute((noreturn));
+static void __limpet_fail(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    __limpet_exit(true);
+}
+
+static void __limpet_warn(const char *fmt, ...) __attribute((unused));
+static void __limpet_warn(const char *fmt, ...) {
+    va_list ap;
+
+    printf("Warning: ");
+    va_start(ap, fmt);  
+    vprintf(fmt, ap);
+    va_end(ap);
+}
+
+static void __limpet_printf(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);  
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+}
 #endif /* _LIMPET_POSIX_H_ */

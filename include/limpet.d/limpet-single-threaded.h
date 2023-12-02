@@ -25,64 +25,17 @@ struct __limpet_sysdep {
 #include "limpet.d/limpet-sysdep.h"
 #include "limpet.d/limpet-posix.h"
 
-#define __LIMPET_STRINGIZE(token)    #token
-
 #define __LIMPET_SYSDEP_INIT { \
         .pid = -1, \
         .timedout = false, \
         .exit_status = -1, \
     }
 
-/*
- * Printing and exit functions
- */
-#define __limpet_fail_with(err, fmt, ...)    do {        \
-        __limpet_fail(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
-    } while (0)
+#define __LIMPET_STRINGIZE(token)    #token
 
-#define __limpet_fail_errno(fmt, ...)    do {        \
-        __limpet_fail_with(errno, fmt, ##__VA_ARGS__); \
-    } while (0)
-
-#define __limpet_warn_with(err, fmt, ...)    do {        \
-        __limpet_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(err)); \
-    } while (0)
-
-#define __limpet_warn_errno(fmt, ...)    do {        \
-        __limpet_warn_with(errno, fmt, ##__VA_ARGS__); \
-    } while (0)
 static void __limpet_exit(bool is_error) __attribute((noreturn));
 static void __limpet_exit(bool is_error) {
     exit(is_error ? EXIT_FAILURE : EXIT_SUCCESS);
-}
-
-static void __limpet_fail(const char *fmt, ...) __attribute((noreturn));
-static void __limpet_fail(const char *fmt, ...) {
-    va_list ap;
-
-    va_start(ap, fmt);  
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-
-    __limpet_exit(true);
-}
-
-static void __limpet_warn(const char *fmt, ...) __attribute((unused));
-static void __limpet_warn(const char *fmt, ...) {
-    va_list ap;
-
-    printf("Warning: ");
-    va_start(ap, fmt);  
-    vprintf(fmt, ap);
-    va_end(ap);
-}
-
-static void __limpet_printf(const char *fmt, ...) {
-    va_list ap;
-
-    va_start(ap, fmt);  
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
 }
 
 struct __limpet_mutex {
