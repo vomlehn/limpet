@@ -59,8 +59,8 @@ INCS += $(INCS_$(VERSION))
 COMMON_TESTS := \
 	signal \
 	simple \
-	"LIMPET_RUNLIST=\"skip1 skip3\"":skip \
-	"LIMPET_RUNLIST=\"\"":skip \
+	"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
+	"LIMPET_RUNLIST=\"\"":skip2 \
 	LIMPET_TIMEOUT=0.5:timeout \
 	two-files
 TESTS = $(COMMON_TESTS) $(TESTS_$(VERSION))
@@ -91,34 +91,29 @@ test: $(TEST_LIST)
 			); \
 		running_string="Running test $$TEST_NAME"; \
 		echo "$$running_string"; \
-        echo "$$running_string" | sed 's/./=/g'; \
-		if eval "$$TEST_CMD | \
-			test/parse-test.sh $$TEST_NAME $(ACTUAL)"; then \
-			echo "No failures found"; \
-		else \
-			echo "Failures were found"; \
-		fi; \
-		SEP='\n'; \
+		eval "$$TEST_CMD | test/parse-test.sh $$TEST_NAME $(ACTUAL)"; \
+		SEP=""; \
 	done; \
-	echo "Done testing"
-	@echo "Starting comparison"; \
 	canonicals=$$(ls $(CANONICAL) | xargs -n1 basename); \
 	actuals=$$(ls $(ACTUAL) | xargs -n1 basename); \
-	n_canonicals="$$(echo "$$canonicals" | wc -w)"; \
-    n_actuals="$$(echo "$$actuals" | wc -w)"; \
-	if [ $$n_canonicals -ne $$n_actuals ]; then \
-	    echo "Different number of canonical and actual files" 1>&2; \
-	    exit 1; \
-	fi; \
+	all="$$(echo "$$canonicals" "$$actuals" | sort -u)"; \
 	errors=0; \
-	for file in $$canonicals; do \
+	for file in $$all; do \
 		actual=$(ACTUAL)/$$file; \
 		canonical=$(CANONICAL)/$$file; \
-		echo "Compare expected output with actual in $$actual"; \
-		diff $$canonical $$actual; \
-		if [ $$? -ne 0 ]; then \
+		if [ ! -f $$actual ]; then \
+		    echo "Expected file $$file was not produced"; \
 			errors=$$((errors + 1)); \
-		fi; \
+	    elif [ ! -f $$canonical ]; then \
+		    echo "File $$file was not expected"; \
+			errors=$$((errors + 1)); \
+	    else \
+            echo "Compare actual output $$actual with expected output"; \
+            diff $$canonical $$actual; \
+            if [ $$? -ne 0 ]; then \
+                errors=$$((errors + 1)); \
+            fi; \
+        fi; \
 	done; \
 	if [ $$errors -eq 0 ]; then \
 		echo "Tests PASSED"; \
@@ -145,8 +140,12 @@ $(BIN)/simple: $(BIN)/simple.o $(LIMPET_HDRS)
 $(BIN)/simple.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/skip: $(BIN)/skip.o $(LIMPET_HDRS)
+$(BIN)/skip1: $(BIN)/skip.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+# Same binary, but with another name so output will be unique
+$(BIN)/skip2: $(BIN)/skip1
+	cp $^ $@
 
 $(BIN)/skip.o: $(SRC)/skip.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^) $(LDFLAGS)
