@@ -31,13 +31,19 @@ endif
 # Linux configuration
 INCS_LINUX = include/limpet-linux.h
 CPPFLAGS_LINUX = -DLIMPET=LIMPET_LINUX
-TESTS_LINUX = LIMPET_MAX_JOBS="2":maxjobs
+TESTS_LINUX = LIMPET_MAX_JOBS="2":maxjobs \
+	"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
+	"LIMPET_RUNLIST=\"\"":skip2 \
+	LIMPET_TIMEOUT=0.5:timeout \
+	LIMPET_MAX_JOBS="1":maxjobs
 
 # Linux single-threaded configuration, a good starting point for embedded
 # use
 INCS_SINGLE_THREADED = include/limpet-single-threaded.h
 CPPFLAGS_SINGLE_THREADED = -DLIMPET=LIMPET_SINGLE_THREADED
-TESTS_SINGLE_THREADED = LIMPET_MAX_JOBS="1":maxjobs
+# We're skipping things that require passing parameters until it's
+# implemented at run time.
+TESTS_SINGLE_THREADED = 
 
 # Set up configuration info
 CPPFLAGS := $(CPPFLAGS_$(VERSION))
@@ -59,9 +65,6 @@ INCS += $(INCS_$(VERSION))
 COMMON_TESTS := \
 	signal \
 	simple \
-	"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
-	"LIMPET_RUNLIST=\"\"":skip2 \
-	LIMPET_TIMEOUT=0.5:timeout \
 	two-files
 TESTS = $(COMMON_TESTS) $(TESTS_$(VERSION))
 
