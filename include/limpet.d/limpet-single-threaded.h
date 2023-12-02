@@ -22,8 +22,8 @@ struct __limpet_sysdep {
     int     exit_status;
 };
 
-#include "limpet-sysdep.h"
-#include "limpet-posix.h"
+#include "limpet.d/limpet-sysdep.h"
+#include "limpet.d/limpet-posix.h"
 
 #define __LIMPET_STRINGIZE(token)    #token
 

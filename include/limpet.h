@@ -18,9 +18,9 @@
 #define LIMPET_SINGLE_THREADED   3
 
 #if LIMPET == LIMPET_LINUX
-#include "limpet-linux.h"
+#include "limpet.d/limpet-linux.h"
 #elif LIMPET == LIMPET_SINGLE_THREADED
-#include "limpet-single-threaded.h"
+#include "limpet.d/limpet-single-threaded.h"
 #else
 #error LIMPET is not supported
 #endif

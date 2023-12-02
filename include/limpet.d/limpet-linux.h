@@ -50,8 +50,8 @@ struct __limpet_sysdep {
     pid_t                       pid;
 };
 
-#include "limpet-sysdep.h"
-#include "limpet-posix.h"
+#include "limpet.d/limpet-sysdep.h"
+#include "limpet.d/limpet-posix.h"
 
 /*
  * Value to use for __limpet_sysdep initiatization
