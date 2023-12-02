@@ -67,7 +67,6 @@ while read line; do
         not_from_limpet "$line"
     fi
 
-    echo Processing $test_name for $FILE_NAME >/dev/tty
     result="$(read_until_match false "$output" "---")"
     echo "$result" >>$output
 done
