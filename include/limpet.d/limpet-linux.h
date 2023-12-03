@@ -298,6 +298,7 @@ static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
  *
  * Returns: The number of characters written or -1 on error.
  */
+#if 0 // FIXME: remove this
 static ssize_t __limpet_copy_file(int in_fd, int out_fd)
     __LIMPET_UNUSED;
 static ssize_t __limpet_copy_file(int in_fd, int out_fd) {
@@ -320,6 +321,7 @@ static ssize_t __limpet_copy_file(int in_fd, int out_fd) {
 
     return total;
 }
+#endif
 
 /*
  * Copy output into the log and wait for the process to terminate
@@ -503,12 +505,16 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
 }
 
 /*
- * This dumps the log file to standard out.
+ * This dumps the log file to standard out. We're going to have to convert
+ * carriage return/linefeed sequences to newlines.
  *
  * Returns true if there was something to print, false otherwise
  */
 static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
-    ssize_t total;
+    char buf[4096];
+    ssize_t zrc = 0;
+    ssize_t total = 0;
+    bool last_was_cr;
 
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
         __limpet_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
@@ -520,9 +526,35 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
      */
     fflush(stdout);
 
-    total = __limpet_copy_file(test->sysdep.log_fd, 1);
-    if (total == -1) {
-        __limpet_fail_errno("Log dump failed");
+    last_was_cr = false;
+
+    for (zrc = read(test->sysdep.log_fd, buf, sizeof(buf)); zrc > 0;
+        zrc = read(test->sysdep.log_fd, buf, sizeof(buf))) {
+        size_t i;
+
+        for (i = 0; i < (size_t)zrc; i++) {
+            char c;
+
+            c = buf[i];
+
+            if (c == '\r') {
+                if (last_was_cr) {
+                    putchar('\r');
+                } else {
+fprintf(stderr, "skip CR\n");
+                    last_was_cr = true;
+                }
+            } else {
+                putchar(c);
+                last_was_cr = false;
+            }
+        }
+
+        total += zrc;
+    }
+
+    if (zrc != 0) {
+        return -1;
     }
 
     if (close(test->sysdep.log_fd) != 0) {

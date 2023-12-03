@@ -4,7 +4,7 @@ SHELL = /bin/bash
 
 # Supported versions are:
 # LINUX
-# SINGLE_THREADED_LINUX_LINUX
+# SINGLE_THREADED_LINUX
 
 VERSION=LINUX
 
