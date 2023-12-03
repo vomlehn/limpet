@@ -4,7 +4,7 @@ SHELL = /bin/bash
 
 # Supported versions are:
 # LINUX
-# SINGLE_THREADED
+# SINGLE_THREADED_LINUX_LINUX
 
 VERSION=LINUX
 
@@ -39,11 +39,11 @@ TESTS_LINUX = LIMPET_MAX_JOBS="2":maxjobs \
 
 # Linux single-threaded configuration, a good starting point for embedded
 # use
-INCS_SINGLE_THREADED = include/limpet-single-threaded.h
-CPPFLAGS_SINGLE_THREADED = -DLIMPET=LIMPET_SINGLE_THREADED
+INCS_SINGLE_THREADED_LINUX = include/limpet-single-threaded-linux.h
+CPPFLAGS_SINGLE_THREADED_LINUX = -DLIMPET=LIMPET_SINGLE_THREADED_LINUX
 # We're skipping things that require passing parameters until it's
 # implemented at run time.
-TESTS_SINGLE_THREADED = 
+TESTS_SINGLE_THREADED_LINUX = 
 
 # Set up configuration info
 CPPFLAGS := $(CPPFLAGS_$(VERSION))

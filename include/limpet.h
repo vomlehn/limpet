@@ -14,13 +14,13 @@
 
 #ifdef LIMPET
 
-#define LIMPET_LINUX             2
-#define LIMPET_SINGLE_THREADED   3
+#define LIMPET_LINUX                    2
+#define LIMPET_SINGLE_THREADED_LINUX    3
 
 #if LIMPET == LIMPET_LINUX
 #include "limpet.d/limpet-linux.h"
-#elif LIMPET == LIMPET_SINGLE_THREADED
-#include "limpet.d/limpet-single-threaded.h"
+#elif LIMPET == LIMPET_SINGLE_THREADED_LINUX
+#include "limpet.d/limpet-single-threaded-linux.h"
 #else
 #error LIMPET is not supported
 #endif
