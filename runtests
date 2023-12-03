@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# This is use to run the various tests on various versions of Limpet
+
+set -eu
+
+# To run a specific test for all versions, set this to the test or tests
+# to run. For example:
+#   TESTS="TESTS=simple"
+TESTS=
+
+# Set this to the versions of Limpet to run
+VERSIONS="LINUX SINGLE_THREADED_LINUX"
+
+sep=""
+errors=0
+
+for version in $VERSIONS; do
+    label="Running tests for version $version"
+    printf "$sep"
+    echo "$version"
+    echo "$version" | sed -e 's/./=/g'
+    set +e
+    make VERSION=$version clean; make VERSION=$version $TESTS
+    status=$?
+    set -e
+
+    if [ $status -ne 0 ]; then
+        errors=$((errors + 1))
+    fi
+
+    sep="\n"
+done
+
+if [ $errors -eq 0 ]; then
+    echo "There were no errors"
+    exit 0
+else
+    echo "There were $errors errors"
+    exit 1
+fi
