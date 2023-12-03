@@ -1,0 +1,5 @@
+> Log for skip2
+This is printed by test skip2
+You should not see this message
+> Test complete: skip2 exit code 0: SUCCESS
+---

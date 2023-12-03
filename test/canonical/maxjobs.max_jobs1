@@ -1,6 +1,7 @@
 > Log for max_jobs1
 This is printed by test max_jobs1
-Two messages should print after a 2 second delay, the third
-after an additional 2 second delay
+One message will print immediately. As many more as allowed
+by MAX_JOBS will also print immediately. Then other messages
+will print after a delay of 2 seconds
 > Test complete: max_jobs1 exit code 0: SUCCESS
 ---

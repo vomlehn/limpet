@@ -1,0 +1,5 @@
+> Log for skip3
+This is printed by test skip3
+You should see this message
+> Test complete: skip3 exit code 0: SUCCESS
+---

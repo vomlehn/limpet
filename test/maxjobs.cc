@@ -18,8 +18,9 @@ int main(int argc, char *argv[]) {
 #ifdef LIMPET
 static void x(const char *name) {
     printf("This is printed by test %s\n", name);
-    printf("Two messages should print after a %d second delay, the third\n"
-        "after an additional %d second delay\n", sleep_time, sleep_time);
+    printf("One message will print immediately. As many more as allowed\n");
+    printf("by MAX_JOBS will also print immediately. Then other messages\n");
+    printf("will print after a delay of %d seconds\n", sleep_time);
     sleep(sleep_time);
 }
 

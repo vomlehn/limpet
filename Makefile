@@ -10,6 +10,8 @@ VERSION=LINUX
 
 BIN=bin
 SRC=src
+ACTUAL= actual
+SCRIPTS=test/scripts
 
 # Be sure bin and src directories are created
 $(shell mkdir -p $(BIN) $(SRC))
@@ -52,9 +54,6 @@ CPPFLAGS += -Wall -Wextra -Werror
 CPPFLAGS += -Wno-unused-parameter
 CPPFLAGS += -Iinclude
 
-ACTUAL= actual
-CANONICAL = test/canonical
-
 INCS := include/limpet.h include/limpet-sysdep.h
 INCS += $(INCS_$(VERSION))
 
@@ -79,51 +78,16 @@ ECHO_TESTS = declare -a tests; \
 TEST_LIST = $(sort $(shell ($(ECHO_TESTS)) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
+# Come up with a list of just the test names
+TEST_NAME_LIST = $(sort $(shell ($(ECHO_TESTS)) | sed -e 's/^.*://'))
+
+PATH := $(SCRIPTS):$(PATH)
+export PATH
+
 .PHONY: test
 test: $(TEST_LIST)
-	@SEP=""; \
-	declare -a tests; \
-	tests=( $(TESTS) ); \
-	for test in "$${tests[@]}"; do \
-		printf "$$SEP"; \
-		TEST_NAME=$$(echo "$$test" | sed 's/^.*://'); \
-		TEST_CMD=$$(echo "$$test" | \
-			sed \
-				-e 's/^[^:]*$$/$(BIN)\/&/' \
-				-e 's/^\(.*\):/\1 $(BIN)\//g' \
-			); \
-		running_string="Running test $$TEST_NAME"; \
-		echo "$$running_string"; \
-		eval "$$TEST_CMD | test/parse-test.sh $$TEST_NAME $(ACTUAL)"; \
-		SEP=""; \
-	done; \
-	canonicals=$$(ls $(CANONICAL) | xargs -n1 basename); \
-	actuals=$$(ls $(ACTUAL) | xargs -n1 basename); \
-	all="$$(echo "$$canonicals" "$$actuals" | sort -u)"; \
-	errors=0; \
-	for file in $$all; do \
-		actual=$(ACTUAL)/$$file; \
-		canonical=$(CANONICAL)/$$file; \
-		if [ ! -f $$actual ]; then \
-		    echo "Expected file $$file was not produced"; \
-			errors=$$((errors + 1)); \
-	    elif [ ! -f $$canonical ]; then \
-		    echo "File $$file was not expected"; \
-			errors=$$((errors + 1)); \
-	    else \
-            echo "Compare actual output $$actual with expected output"; \
-            diff $$canonical $$actual; \
-            if [ $$? -ne 0 ]; then \
-                errors=$$((errors + 1)); \
-            fi; \
-        fi; \
-	done; \
-	if [ $$errors -eq 0 ]; then \
-		echo "Tests PASSED"; \
-	else \
-		echo "Tests FAILED"; \
-		exit 1; \
-	fi
+	run-tests.sh $(ACTUAL) $(BIN) "$(TEST_NAME_LIST)"
+	check-tests.sh $(ACTUAL) "$(TEST_NAME_LIST)"
 
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) -o $@ $(filter-out %.h,$^) $(LDFLAGS)

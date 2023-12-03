@@ -541,7 +541,6 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
                 if (last_was_cr) {
                     putchar('\r');
                 } else {
-fprintf(stderr, "skip CR\n");
                     last_was_cr = true;
                 }
             } else {
