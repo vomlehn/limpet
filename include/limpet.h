@@ -154,11 +154,7 @@ static bool __limpet_parse_runlist(struct __limpet_params *params) {
         const char *start;
         const char *space;
 
-        params->runlist = (char **)malloc(0);
-        if (params->runlist == NULL) {
-            __limpet_fail("Out of memory allocating runlist\n");
-        }
-
+        params->runlist = NULL;
         start = runlist_env;
 
         for (space = strchr(start, ' '); space != NULL;
@@ -373,12 +369,8 @@ __limpet_next_test(struct __limpet_test * test) {
 static bool __limpet_must_run(const char *name) {
     size_t i;
 
-    if (__limpet_params.n_runlist == 0) {
-        if (__limpet_params.runlist == NULL) {
-            return true;
-        } else {
-            return false;
-        }
+    if (__limpet_params.runlist == NULL) {
+        return true;
     }
 
     for (i = 0; i < __limpet_params.n_runlist; i++) {

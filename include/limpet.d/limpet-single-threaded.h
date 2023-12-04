@@ -30,7 +30,8 @@ static void __limpet_cleanup_test(struct __limpet_test *test);
 #include "limpet.d/limpet-sysdep.h"
 #include "limpet.d/limpet-posix.h"
 
-#define __LIMPET_STRINGIZE(token)    #token
+#define __LIMPET_STRINGIFY_HELPER(token)    #token
+#define __LIMPET_STRINGIFY(token)           __LIMPET_STRINGIFY_HELPER(token)
 
 struct __limpet_mutex {
     };
@@ -62,7 +63,7 @@ static void __limpet_cond_wait(struct __limpet_cond *cond,
  */
 static const char *__limpet_get_maxjobs(void) {
 #ifdef LIMPET_MAX_JOBS
-    return __LIMPET_STRINGIZE(LIMPET_MAX_JOBS);
+    return __LIMPET_STRINGIFY(LIMPET_MAX_JOBS);
 #else
     return NULL;
 #endif
@@ -70,7 +71,7 @@ static const char *__limpet_get_maxjobs(void) {
 
 static const char *__limpet_get_runlist(void) {
 #ifdef LIMPET_RUNLIST
-    return __LIMPET_STRINGIZE(LIMPET_RUNLIST);
+    return __LIMPET_STRINGIFY(LIMPET_RUNLIST);
 #else
     return NULL;
 #endif
@@ -78,7 +79,7 @@ static const char *__limpet_get_runlist(void) {
 
 static const char *__limpet_get_timeout(void) {
 #ifdef LIMPET_TIMEOUT
-    return __LIMPET_STRINGIZE(LIMPET_TIMEOUT);
+    return __LIMPET_STRINGIFY(LIMPET_TIMEOUT);
 #else
     return NULL;
 #endif

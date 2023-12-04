@@ -1,0 +1,18 @@
+# File with comment definitions. This is intended to be used with
+# the bash source command:
+#
+#   source "$(dirname "$0")/test-common.sh
+
+# Read an array of testinfo information. We have to use a temporary file
+# because just piping the output of print-testinfo.sh runs a subshell,
+# which doesn't propagate the value of the resulting array
+declare -a testinfo_output
+testinfo()
+{
+    local tmpfile="$1"
+    local VERSION="$2"
+    local RUNLIST="$3"
+
+    declare -a testinfo_output
+
+}

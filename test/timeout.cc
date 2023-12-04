@@ -21,6 +21,8 @@ LIMPET_TEST(timeout) {
     const int sleep_time = 2;
     printf("This is printed by test tiemout\n");
     printf("Sleeping for %d seconds\n", sleep_time);
+    printf("You should not see anything after this\n");
     sleep(sleep_time); 
+    printf("You should not see this\n");
 }
 #endif /* LIMPET */

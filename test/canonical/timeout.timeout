@@ -1,5 +1,3 @@
 > Log for timeout
-This is printed by test tiemout
-Sleeping for 2 seconds
-> Test complete: timeout exit code 0: SUCCESS
+> Test complete: timeout timed out after 0.5 seconds: FAILURE
 ---

@@ -24,8 +24,8 @@ CANONICAL=test/canonical
 
 errors=0
 for test in $TESTS; do
-    actuals="$(ls $ACTUAL/$test.* | xargs -n1 basename)"
-    canonicals="$(ls $CANONICAL/$test.*)"
+    actuals="$(find $ACTUAL -name "$test.*" | xargs -n1 basename)"
+    canonicals="$(find $CANONICAL -name "$test.*")"
     all="$(echo "$actuals" "$canonicals" | xargs -n1 basename | sort -u)"
 
     for file in $all; do

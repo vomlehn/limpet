@@ -150,8 +150,9 @@ static void __limpet_cond_wait(struct __limpet_cond *cond,
  * LIMPET_MAX_JOBS   Specifies the maximum number of threads running at a
  *      time. If this is not set or is zero, there is no limit
  * LIMPET_RUNLIST    A list of names of tests to be run, separated by
- *      colons. If this is not set, all tests will be run. Note: If this is
- *      set to an empty string, no tests will be run
+ *      colons. If this is not set or is zero length, all tests will be run. 
+ *      Note: If this is set to a string that has no elements that match
+ *      a test name, nothing will be run.
  */
 #define __LIMPET_MAX_JOBS  "LIMPET_MAX_JOBS"
 #define __LIMPET_RUNLIST   "LIMPET_RUNLIST"
@@ -171,7 +172,10 @@ static const char *__limpet_get_maxjobs(void) {
 }
 
 static const char *__limpet_get_runlist(void) {
-    return getenv(__LIMPET_RUNLIST);
+    const char *runlist;
+
+    runlist = getenv(__LIMPET_RUNLIST);
+    return (runlist == NULL || strlen(runlist) == 0) ? NULL : runlist;
 }
 
 static const char *__limpet_get_timeout(void) {

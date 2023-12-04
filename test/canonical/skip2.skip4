@@ -1,5 +1,0 @@
-> Log for skip4
-This is printed by test skip4
-You should not see this message
-> Test complete: skip4 exit code 0: SUCCESS
----

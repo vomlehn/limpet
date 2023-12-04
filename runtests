@@ -3,14 +3,36 @@
 # This is use to run the various tests on various versions of Limpet
 
 set -eu
+usage='echo "usage: $0" 1>&2; exit 1'
+
+while getopts "" OPT "$@"; do
+    case "$OPT" in
+    *)
+        eval $usage
+        ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+if [ $# -ne 0 ]; then
+    eval $usage
+fi
 
 # To run a specific test for all versions, set this to the test or tests
 # to run. For example:
-#   TESTS="TESTS=simple"
+#   TESTS="simple"
+# If this is blank, all tests will be run
 TESTS=
 
 # Set this to the versions of Limpet to run
 VERSIONS="LINUX SINGLE_THREADED_LINUX"
+
+if [ -z "$TESTS" ]; then
+    TEST_VAR=
+else
+    TEST_VAR="TESTS=\"$TESTS\""
+fi
 
 sep=""
 errors=0
@@ -21,7 +43,8 @@ for version in $VERSIONS; do
     echo "$version"
     echo "$version" | sed -e 's/./=/g'
     set +e
-    make VERSION=$version clean; make VERSION=$version $TESTS
+    make VERSION=$version clean
+    make VERSION=$version $TEST_VAR
     status=$?
     set -e
 

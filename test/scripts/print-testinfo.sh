@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# Print the test case information, one per line
+set -eu
+usage='echo "usage: $0 version [ runlist ]" 1>&2; exit 1'
+
+while getopts "" OPT "$@"; do
+    case "$OPT" in
+    *)
+        eval $usage
+        ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+case $# in
+1)
+    VERSION="$1"
+    ;;
+
+2)
+    VERSION="$1"
+    RUNLIST="$2"
+    ;;
+
+*)
+    eval $usage
+    ;;
+esac
+
+# Must use quotes and escaped quotes if the value has spaces
+# For skip2, LIMPET_RUNLIST must be set to a test name that doesn't exist
+# so that no tests are run.
+test_infos=( signal \
+	simple \
+	two-files \
+	"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
+	"LIMPET_RUNLIST=\"no-such-test\"":skip2 \
+	LIMPET_TIMEOUT=0.5:timeout
+)
+
+case "$VERSION" in
+LINUX)
+    test_infos+=("LIMPET_MAX_JOBS=\"2\":maxjobs")
+    ;;
+
+SINGLE_THREADED_LINUX)
+    test_infos+=("LIMPET_MAX_JOBS=\"1\":maxjobs")
+    ;;
+
+*)
+    eval $usage
+esac
+
+for test_info in "${test_infos[@]}"; do
+    if [ -v RUNLIST ]; then
+        for match in $RUNLIST; do
+            if expr "$test_info" : "$match\$" >/dev/null; then
+                echo "$test_info"
+            elif expr "$test_info" : ".*:$match\$" >/dev/null; then
+                echo "$test_info"
+            fi
+        done
+    else
+        echo "$test_info"
+    fi
+done
