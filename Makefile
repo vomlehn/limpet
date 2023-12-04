@@ -92,7 +92,6 @@ $(BIN)/skip1: $(BIN)/skip1.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/skip1.o: $(SRC)/skip.$(SFX) $(LIMPET_HDRS)
-	echo --------------
 	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,skip1)) -c -o $@ $(filter-out %.h,$^)
 
 $(BIN)/skip2: $(BIN)/skip2.o $(LIMPET_HDRS)
