@@ -5,6 +5,9 @@ not defined, no tests will be defined or run.
 
 A Complete Example
 ==================
+The following code #includes the beader file limpet.h, which can be used
+with C and C++. Actual test cases are in the section demarcated by 
+#ifdef LIMPET...#endif:
 
     /*
      * Test for limpet
@@ -38,13 +41,17 @@ To compile, use:
 
     cc  -Iinclude -DLIMPET=LIMPET_LINUX -o simple test/simple.cc
 
+where include should be replaced by the relative or absolute path the
+the limpet/include directory. This directory has limpet,h and a
+subdirectory, limpet.d, contain other header files used by limpet..
+
 To run, use:
 
     ./simple
 
-As implied in the example above, when build for LIMPET, the tests will
+As implied in the example above, when built for LIMPET, the tests will
 halt before main is called. This avoids the possibility of overlooking
-that test code is being included.
+that test code is being included when not configured for testing.
 
 Platform Support
 ================
@@ -52,29 +59,29 @@ The symbol defined on the compilation command line, LIMPET, is set
 to a value to indicate which version of Limpet is to be build. There
 are presently two possibilities:
 
-    LIMPET_LINUX             Build for Linux. This allows parallel test
-                                execution
+    LIMPET_LINUX                    Use this for Linux testing when running
+                                    multiple tests in parallel.
 
-    LIMPET_SINGLE_THREADED   Build for Linux, but as a single-threaded
-                                application. Tests are still started with
-                                fork() but this could be replaced by a
-                                different primative. This is intended to
-                                demonstrate how these tests might be
-                                set up for an embedded system.
+    LIMPET_SINGLE_THREADED_LINUX    This is also works on Linux, but runs
+                                    the tests in a single threaded fashion.
+                                    It's not really intend for production use
+                                    but rather as an example of how Limpet can
+                                    be used on single thread systems, such as
+                                    simple embedded systems.
 
 Configuration Variables
 =======================
 Configuration variables are available to control execution:
 
-LIMPET_MAX_JOBS  When parallel execution is supported, this limits the
-                    number of tests run in parallel.
+LIMPET_MAX_JOBS When parallel execution is supported, this limits the
+                number of tests run in parallel.
 
-LIMPET_RUNLIST   A space-separated list of tests to run.
+LIMPET_RUNLIST  A space-separated list of tests to run.
 
-LIMPET_TIMEOUT   A floating point value specifying the amount of time
-                    a test can be run before being killed. The default is
-                    30 seconds. A value of zero means tests will not be
-                    halted.
+LIMPET_TIMEOUT  A floating point value specifying the amount of time
+                a test can be run before being killed. The default is
+                30 seconds. A value of zero means tests will not be
+                halted.
 
 Values for configuration variables may be set in two ways:
 
@@ -84,3 +91,17 @@ Values for configuration variables may be set in two ways:
 2.  If the platform doesn't take environment variables, the values can
     be specified on the compiler command line, e.g. -DLIMPET_TIMEOUT=2.5
     The single-threaded platform noted above uses this method.
+
+Supporting Limpet On Other Systems
+==================================
+Limpet is comprised of code that uses various interfaces to abstract the
+underlying kernel or real time system. The limpet.d/limpet-sysdep.h file
+lists interfaces that must be implemented, with some additional interfaces
+in limpet.d/limpet-single-threaded.h. Following the system-dependent
+examples in limpet.d/limpet-linux.h and
+limpet.d/limpet-single-threaded-linux.h should be straight forward, but the
+author will be happy to incorporate suggests and, especially, actual written
+documentation, in this code for the future.
+--
+David VomLehn
+dvomlehn@gmail.com
