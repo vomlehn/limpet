@@ -1,0 +1,4 @@
+> Log for ge_failure
+This is printed by test ge_failure
+> Test complete: ge_failure exit code 1: FAILURE
+---

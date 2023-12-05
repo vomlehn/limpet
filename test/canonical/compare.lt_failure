@@ -1,0 +1,4 @@
+> Log for lt_failure
+This is printed by test lt_failure
+> Test complete: lt_failure exit code 1: FAILURE
+---

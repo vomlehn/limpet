@@ -1,0 +1,4 @@
+> Log for ne_failure
+This is printed by test ne_failure
+> Test complete: ne_failure exit code 1: FAILURE
+---
