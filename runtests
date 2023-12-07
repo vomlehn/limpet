@@ -61,6 +61,6 @@ if [ $errors -eq 0 ]; then
     echo "There were no errors detected for any tests of versions configured"
     exit 0
 else
-    echo "There were $errors errors"
+    echo "There were errors detected in $errors versions"
     exit 1
 fi

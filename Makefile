@@ -78,6 +78,13 @@ $(BIN)/compare.o: $(SRC)/compare.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,compare)) -c \
 	    -o $@ $(filter-out %.h,$^)
 
+$(BIN)/default-verbose: $(BIN)/default-verbose.o $(LIMPET_HDRS)
+	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+$(BIN)/default-verbose.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,default-verbose)) -c \
+	    -o $@ $(filter-out %.h,$^)
+
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 

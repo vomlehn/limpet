@@ -37,6 +37,7 @@ esac
 # specifically testing the VERBOSE functionality
 test_infos=( "LIMPET_VERBOSE=true":compare \
     "LIMPET_VERBOSE=false":not-verbose \
+    default-verbose \
     "LIMPET_VERBOSE=true":signal \
 	"LIMPET_VERBOSE=true":simple \
 	"LIMPET_VERBOSE=true":two-files \
