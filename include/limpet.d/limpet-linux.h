@@ -305,38 +305,6 @@ static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
         __limpet_fail_errno("dup2(%d, %d)", 0, 2);
     }
 }
-    
-/*
- * Copy from one file descriptor to another
- * in_fd - Input file descriptor
- * out_fd - Output file descriptor
- *
- * Returns: The number of characters written or -1 on error.
- */
-#if 0 // FIXME: remove this
-static ssize_t __limpet_copy_file(int in_fd, int out_fd)
-    __LIMPET_UNUSED;
-static ssize_t __limpet_copy_file(int in_fd, int out_fd) {
-    char buf[4096];
-    ssize_t zrc = 0;
-    ssize_t total = 0;
-
-    for (zrc = read(in_fd, buf, sizeof(buf)); zrc > 0;
-        zrc = read(in_fd, buf, sizeof(buf))) {
-        zrc = write(out_fd, buf, zrc);
-        if (zrc < 0) {
-            return -1;
-        }
-        total += zrc;
-    }
-
-    if (zrc != 0) {
-        return -1;
-    }
-
-    return total;
-}
-#endif
 
 /*
  * Copy output into the log and wait for the process to terminate

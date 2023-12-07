@@ -1,14 +1,7 @@
 /*
  * Code allowing embedding of tests within C/C++ code
  */
-// FIXME: possible names
-// embtest
-// rustest
-// intest
-// limpet
-// parasie
-// symbiote
-// testpartner
+
 #ifndef _LEAVEIN_H_
 #define _LEAVEIN_H_
 
@@ -40,7 +33,6 @@
  * priorities. If necessary, these can be overridden  by defining one or
  * both before #including this file:
  */
-// FIXME: verify these values
 #ifndef __LIMPET_SETUP_PRI
 #define __LIMPET_SETUP_PRI   101
 #endif

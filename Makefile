@@ -56,7 +56,6 @@ INCS += $(INCS_$(VERSION))
 TEST_BINS = $(sort $(shell $(SCRIPTS)/print-testnames.sh $(VERSION) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
-# FIXME: I don't think I need this
 # Come up with a list of just the test file names, without any preceeding
 # directory name
 TEST_NAME_LIST = $(shell $(SCRIPTS)/print-testnames.sh $(VERSION))
