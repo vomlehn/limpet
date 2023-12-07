@@ -7,13 +7,14 @@
 VERSION=LINUX
 
 SHELL = /bin/bash
-PATH := $(SCRIPTS):$(PATH)
-export PATH
 
 BIN = bin
 SRC = src
 ACTUAL = actual
 SCRIPTS = test/scripts
+
+PATH := $(SCRIPTS):$(PATH)
+export PATH
 
 # Be sure bin and src directories are created
 $(shell mkdir -p $(BIN) $(SRC) $(ACTUAL))
@@ -52,13 +53,13 @@ INCS := include/limpet.h include/limpet-sysdep.h
 INCS += $(INCS_$(VERSION))
 
 # Produce a list of file names for test executables
-TEST_BINS = $(sort $(shell print-testnames.sh $(VERSION) | \
+TEST_BINS = $(sort $(shell $(SCRIPTS)/print-testnames.sh $(VERSION) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
 # FIXME: I don't think I need this
 # Come up with a list of just the test file names, without any preceeding
 # directory name
-TEST_NAME_LIST = $(shell print-testnames.sh $(VERSION))
+TEST_NAME_LIST = $(shell $(SCRIPTS)/print-testnames.sh $(VERSION))
 
 # Define test-specific flags
 define print_cppflags
@@ -70,50 +71,72 @@ test: $(TEST_BINS)
 	run-tests.sh $(VERSION) $(ACTUAL) $(BIN) "$(TEST_NAME_LIST)"
 	check-tests.sh $(ACTUAL) "$(TEST_NAME_LIST)"
 
+$(BIN)/compare: $(BIN)/compare.o $(LIMPET_HDRS)
+	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+$(BIN)/compare.o: $(SRC)/compare.$(SFX) $(LIMPET_HDRS)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,compare)) -c \
+	    -o $@ $(filter-out %.h,$^)
+
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/maxjobs.o: $(SRC)/maxjobs.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,maxjobs)) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,maxjobs)) -c \
+	    -o $@ $(filter-out %.h,$^)
+
+$(BIN)/not-verbose: $(BIN)/not-verbose.o $(LIMPET_HDRS)
+	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+$(BIN)/not-verbose.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,not-verbose)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/signal: $(BIN)/signal.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/signal.o: $(SRC)/signal.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,signal)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/simple: $(BIN)/simple.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/simple.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,simple)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/skip1: $(BIN)/skip1.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/skip1.o: $(SRC)/skip.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,skip1)) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,skip1)) \
+	    -c -o $@ $(filter-out %.h,$^)
 
 $(BIN)/skip2: $(BIN)/skip2.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/skip2.o: $(SRC)/skip.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,skip2)) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,skip2)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/timeout: $(BIN)/timeout.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/timeout.o: $(SRC)/timeout.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,timeout)) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,timeout)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/two-files: $(BIN)/two-files-main.o $(BIN)/two-files-sub.o
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
 $(BIN)/two-files-main.o: $(SRC)/two-files-main.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,two-files)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/two-files-sub.o: $(SRC)/two-files-sub.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) -c -o $@ $(filter-out %.h,$^)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,two-files)) -c \
+	    -o $@ $(filter-out %.h,$^)
 
 $(SRC)/%.$(SFX): test/%.cc
 	cp $^ $@

@@ -32,21 +32,26 @@ esac
 # Must use quotes and escaped quotes if the value has spaces
 # For skip2, LIMPET_RUNLIST must be set to a test name that doesn't exist
 # so that no tests are run.
-test_infos=( signal \
-	simple \
-	two-files \
-	"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
-	"LIMPET_RUNLIST=\"no-such-test\"":skip2 \
-	LIMPET_TIMEOUT=0.5:timeout
+#
+# Note that VERBOSE should be set to true for everything that is not
+# specifically testing the VERBOSE functionality
+test_infos=( "LIMPET_VERBOSE=true":compare \
+    "LIMPET_VERBOSE=false":not-verbose \
+    "LIMPET_VERBOSE=true":signal \
+	"LIMPET_VERBOSE=true":simple \
+	"LIMPET_VERBOSE=true":two-files \
+	"LIMPET_VERBOSE=true":"LIMPET_RUNLIST=\"skip1 skip3\"":skip1 \
+	"LIMPET_VERBOSE=true":"LIMPET_RUNLIST=\"no-such-test\"":skip2 \
+	"LIMPET_VERBOSE=true":LIMPET_TIMEOUT=0.5:timeout
 )
 
 case "$VERSION" in
 LINUX)
-    test_infos+=("LIMPET_MAX_JOBS=\"2\":maxjobs")
+    test_infos+=(""LIMPET_VERBOSE=true":LIMPET_MAX_JOBS=\"2\":maxjobs")
     ;;
 
 SINGLE_THREADED_LINUX)
-    test_infos+=("LIMPET_MAX_JOBS=\"1\":maxjobs")
+    test_infos+=(""LIMPET_VERBOSE=true":LIMPET_MAX_JOBS=\"1\":maxjobs")
     ;;
 
 *)

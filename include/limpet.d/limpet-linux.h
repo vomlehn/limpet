@@ -31,7 +31,7 @@
  * System-dependent per-test information.
  * log_fd - file descriptor for the log file.
  * raw_pty - the master side of a pseudoterminal
- * tty_pty - the slave side of a pseudoterminal
+ * tty - the slave side of a pseudoterminal
  * thread - the thread for a test that is responsible for forking and waiting
  *      for the process whose process is in pid
  * timedout - true if the process timed out
@@ -43,7 +43,7 @@
 struct __limpet_sysdep {
     int                         log_fd;
     int                         raw_pty;
-    int                         tty_pty;
+    int                         tty;
     pthread_t                   thread;
     bool                        timedout;
     int                         exit_status;
@@ -59,7 +59,7 @@ struct __limpet_sysdep {
 #define __LIMPET_SYSDEP_INIT         {   \
         .log_fd = -1,                       \
         .raw_pty = -1,                      \
-        .tty_pty = -1,                      \
+        .tty = -1,                      \
         .thread = 0,                        \
         .timedout = false,                  \
         .exit_status = 0,                   \
@@ -156,6 +156,7 @@ static void __limpet_cond_wait(struct __limpet_cond *cond,
  */
 #define __LIMPET_MAX_JOBS  "LIMPET_MAX_JOBS"
 #define __LIMPET_RUNLIST   "LIMPET_RUNLIST"
+#define __LIMPET_VERBOSE   "LIMPET_VERBOSE"
 #define __LIMPET_TIMEOUT   "LIMPET_TIMEOUT"
 
 /*
@@ -182,6 +183,10 @@ static const char *__limpet_get_timeout(void) {
     return getenv(__LIMPET_TIMEOUT);
 }
 
+static const char *__limpet_get_verbose(void) {
+    return getenv(__LIMPET_VERBOSE);
+}
+
 /*
  * Remove things in the environment specific to leavmein
  */
@@ -201,33 +206,39 @@ static void __limpet_parse_done(void)
 }
 
 /*
- * Create a pseudoterminal so that the test can play with stdin, stdout,
- * and stderr.
+ * Create a file descriptor so that the test can play with stdin, stdout,
+ * and stderr. This will normally be a pseudoterminal but will be /dev/null
+ * when verbose is true
  */
-static bool __limpet_make_pty(struct __limpet_sysdep *sysdep)
+static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep)
     __LIMPET_UNUSED;
-static bool __limpet_make_pty(struct __limpet_sysdep *sysdep) {
+static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep) {
     struct termios termios;
     struct winsize winsize;
     int rc;
 
-    rc = tcgetattr(0, &termios);
-    if (rc == -1) {
-        __limpet_fail_errno("Unable to get terminal characteristics");
-    }
+    if (__limpet_params.verbose) {
+        rc = tcgetattr(0, &termios);
+        if (rc == -1) {
+            __limpet_fail_errno("Unable to get terminal characteristics");
+        }
 
-    rc = ioctl(0, TIOCGWINSZ, &winsize);
-    if (rc == -1) {
-        __limpet_fail_errno("Unable to get windows size");
-    }
+        rc = ioctl(0, TIOCGWINSZ, &winsize);
+        if (rc == -1) {
+            __limpet_fail_errno("Unable to get windows size");
+        }
 
-    rc = openpty(&sysdep->raw_pty, &sysdep->tty_pty, NULL, &termios,
-        &winsize);
-    if (rc == -1) {
-        __limpet_fail_errno("Unable to create pty");
+        rc = openpty(&sysdep->raw_pty, &sysdep->tty, NULL, &termios,
+            &winsize);
+        if (rc == -1) {
+            __limpet_fail_errno("Unable to create pty");
+        }
+    } else {
+        sysdep->tty = open("/dev/null", O_RDWR);
+        if (sysdep->tty == -1) {
+            __limpet_fail_errno("Unable to open /dev/null");
+        }
     }
-
-    return true;
 }
 
 static bool __limpet_thread_setup(struct __limpet_test *test) {
@@ -246,9 +257,7 @@ static bool __limpet_thread_setup(struct __limpet_test *test) {
         __limpet_fail_errno("Unable to make log file");
     }
 
-    if (!__limpet_make_pty(&test->sysdep)) {
-        return false;
-    }
+    __limpet_make_std_fd(&test->sysdep);
 
     return true;
 }
@@ -268,20 +277,22 @@ static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
         __limpet_fail_errno("close(log_fd %d)", sysdep->log_fd);
     }
 
-    if (close(sysdep->raw_pty) == -1) {
-        __limpet_fail_errno("close(child raw_pty %d)", sysdep->raw_pty);
+    if (__limpet_params.verbose) {
+        if (close(sysdep->raw_pty) == -1) {
+            __limpet_fail_errno("close(child raw_pty %d)", sysdep->raw_pty);
+        }
     }
 
-    if (dup2(sysdep->tty_pty, 0) == -1) {
-        __limpet_fail_errno("dup2(%d, %d)", sysdep->tty_pty, 0);
+    if (dup2(sysdep->tty, 0) == -1) {
+        __limpet_fail_errno("dup2(%d, %d)", sysdep->tty, 0);
     }
 
     /* Now we don't need the original pesudoterminal file descriptor, either
      *
      */
 
-    if (close(sysdep->tty_pty) == -1) {
-        __limpet_fail_errno("close(tty_pty %d)", sysdep->tty_pty);
+    if (close(sysdep->tty) == -1) {
+        __limpet_fail_errno("close(tty %d)", sysdep->tty);
     }
 
     /*
@@ -361,7 +372,16 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
             test->sysdep.pid);
     }
 
-    io_state = io_read;
+    /*
+     * If we are in non-verbose mode, we have nothing to read and are
+     * effectively at the EOF
+     */
+    if (__limpet_params.verbose) {
+        io_state = io_read;
+    } else {
+        io_state = io_eof;
+    }
+
     proc_state = proc_running;
 
     do {
@@ -403,19 +423,21 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
             break;
         }
 
-        switch (io_state) {
-        case io_read:
-            FD_SET(test->sysdep.raw_pty, &rfds);
-            nfds = MAX(nfds, test->sysdep.raw_pty + 1);
-            break;
+        if (__limpet_params.verbose) {
+            switch (io_state) {
+            case io_read:
+                FD_SET(test->sysdep.raw_pty, &rfds);
+                nfds = MAX(nfds, test->sysdep.raw_pty + 1);
+                break;
 
-        case io_write:
-            FD_SET(test->sysdep.log_fd, &wfds);
-            nfds = MAX(nfds, test->sysdep.log_fd + 1);
-            break;
+            case io_write:
+                FD_SET(test->sysdep.log_fd, &wfds);
+                nfds = MAX(nfds, test->sysdep.log_fd + 1);
+                break;
 
-        case io_eof:
-            break;
+            case io_eof:
+                break;
+            }
         }
 
         rc = select(nfds, &rfds, &wfds, NULL, tv);
@@ -456,46 +478,49 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
             break;
         }
             
-        switch (io_state) {
-        case io_read:
-            if (FD_ISSET(test->sysdep.raw_pty, &rfds)) {
-                zrc = read(test->sysdep.raw_pty, buf, sizeof(buf));
-                switch (zrc) {
-                case -1:
-                    /*
-                     * I would have expected a zero return when the other end
-                     * of the pseudoterminal was closed, but seem to get
-                     * this
-                     */
-                    if (errno != EIO) {
-                        __limpet_fail_errno("raw pty read failed");
+        if (__limpet_params.verbose) {
+            switch (io_state) {
+            case io_read:
+                if (FD_ISSET(test->sysdep.raw_pty, &rfds)) {
+                    zrc = read(test->sysdep.raw_pty, buf, sizeof(buf));
+                    switch (zrc) {
+                    case -1:
+                        /*
+                         * I would have expected a zero return when the
+                         * other end of the pseudoterminal was closed, but
+                         * seem to get this
+                         */
+                        if (errno != EIO) {
+                            __limpet_fail_errno("raw pty read failed");
+                        }
+                        io_state = io_eof;
+                        break;
+
+                    case 0:
+                        io_state = io_eof;
+                        break;
+
+                    default:
+                        io_state = io_write;
+                        break;
                     }
-                    io_state = io_eof;
-                    break;
-
-                case 0:
-                    io_state = io_eof;
-                    break;
-
-                default:
-                    io_state = io_write;
-                    break;
                 }
-            }
-            break;
+                break;
 
-        case io_write:
-            if (FD_ISSET(test->sysdep.log_fd, &wfds)) {
-                zrc = write(test->sysdep.log_fd, buf, zrc);
-                if (zrc == -1) {
-                    __limpet_fail_errno("log write failed");
+            case io_write:
+                if (FD_ISSET(test->sysdep.log_fd, &wfds)) {
+                    zrc = write(test->sysdep.log_fd, buf, zrc);
+                    if (zrc == -1) {
+                        __limpet_fail_errno("log write failed");
+                    }
                 }
+
                 io_state = io_read;
-            }
-            break;
+                break;
 
-        case io_eof:
-            break;
+            case io_eof:
+                break;
+            }
         }
     } while (proc_state != proc_reaped || io_state != io_eof);
 
@@ -503,8 +528,10 @@ static void __limpet_log_and_wait(struct __limpet_test *test) {
         __limpet_fail_errno("close(pid_fd) failed");
     }
 
-    if (close(test->sysdep.raw_pty) == -1) {
-        __limpet_fail_errno("close(parent raw_pty) failed");
+    if (__limpet_params.verbose) {
+        if (close(test->sysdep.raw_pty) == -1) {
+            __limpet_fail_errno("close(parent raw_pty) failed");
+        }
     }
 }
 
@@ -598,8 +625,8 @@ static void *__limpet_run_one(void *arg) {
         /*
          * Set the process ID and let the wait begin
          */
-        if (close(test->sysdep.tty_pty) == -1) {
-            __limpet_fail_errno("close(test->tty_pty) failed");
+        if (close(test->sysdep.tty) == -1) {
+            __limpet_fail_errno("close(test->tty) failed");
         }
         test->sysdep.pid = pid;
         break;
@@ -624,7 +651,7 @@ static void *__limpet_run_one(void *arg) {
 
 /*
  * Run one test
- *  test - Pointer to a __limpet_params for the test to run
+ *  test - Pointer to a __limpet_test for the test to run
  */
 static void __limpet_start_one(struct __limpet_test *test) {
     int rc;
@@ -661,11 +688,14 @@ static void __limpet_post_start(struct __limpet_test *test) {
  */
 static bool __limpet_pre_stored(struct __limpet_test *test,
     const char *sep) {
+
     __limpet_print_test_header(test, sep);
+
     return true;
 }
 
 static void __limpet_post_stored(struct __limpet_test *test) {
+
     __limpet_print_test_trailer(test);
 }
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

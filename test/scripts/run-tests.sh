@@ -59,7 +59,9 @@ for test in "${tests[@]}"; do
     printf "$SEP"
     TEST_NAME="$(echo "$test" | sed 's/^.*://')"
     TEST_CMD="$(echo "$test" |
-        sed -e "s/^[^:]*$/$BIN\/&/" -e "s/^\(.*\):/\1 $BIN\//g")"
+        sed -e "s/^[^:]*$/$BIN\/&/" \
+        -e "s/^\(.*\):/\1 $BIN\//g" \
+        -e 's/:/ /g')"
     running_string="Test comand $TEST_CMD"
     echo "$running_string"
     eval "$TEST_CMD | parse-test.sh $TEST_NAME $ACTUAL"

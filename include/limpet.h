@@ -82,9 +82,17 @@
     void testname(void)
 
 #define limpet_assert_eq(a, b)    \
-    do { if ((a) != (b)) __limpet_exit(true); } while (0)
+    do { if (!((a) == (b))) __limpet_exit(true); } while (0)
 #define limpet_assert_ne(a, b)    \
-    do { if ((a) != (b)) __limpet_exit(true); } while (0)
+    do { if (!((a) != (b))) __limpet_exit(true); } while (0)
+#define limpet_assert_gt(a, b)    \
+    do { if (!((a) > (b))) __limpet_exit(true); } while (0)
+#define limpet_assert_ge(a, b)    \
+    do { if (!((a) >= (b))) __limpet_exit(true); } while (0)
+#define limpet_assert_lt(a, b)    \
+    do { if (!((a) < (b))) __limpet_exit(true); } while (0)
+#define limpet_assert_le(a, b)    \
+    do { if (!((a) <= (b))) __limpet_exit(true); } while (0)
     
 /*
  * These definitions are intended for internal use by the limpet code
@@ -100,11 +108,6 @@
  * String used before printing limpet output.
  */
 #define __LIMPET_MARKER "> "
-
-/*
- * Parsed parameter information
- */
-struct __limpet_params __limpet_params __attribute((common));
 
 /*
  * Add a test name to the run list
@@ -189,6 +192,7 @@ static bool __limpet_parse_runlist(struct __limpet_params *params) {
 static bool __limpet_parse_params(struct __limpet_params *params) {
     const char *max_jobs_env;
     const char *timeout;
+    const char *verbose_env;
 
     memset(params, 0, sizeof(*params));
 
@@ -218,6 +222,17 @@ static bool __limpet_parse_params(struct __limpet_params *params) {
 
         if (*timeout == '\0' || *endptr != '\0') {
             __limpet_fail("Bad timeout value\n", timeout);
+        }
+    }
+
+    verbose_env = __limpet_get_verbose();
+    if (verbose_env != NULL) {
+        if (strcmp(verbose_env, "true") == 0) {
+            params->verbose = true;
+        } else if (strcmp(verbose_env, "false") == 0) {
+            params->verbose = false;
+        } else {
+            __limpet_fail("VERBOSE must be true or false\n");
         }
     }
 
@@ -427,7 +442,9 @@ static bool __limpet_report_on_done(size_t *reported, const char *sep) {
         __limpet_cleanup_test(p);
 
         printed_something |= __limpet_pre_stored(p, sep);
+
         __limpet_dump_stored_log(p);
+
         __limpet_post_stored(p);
     }
 
@@ -473,11 +490,12 @@ printf("Running limpet\n");
 
         __limpet_inc_started();
 
-        if (__limpet_pre_start(p, sep)) {
+        if (__limpet_pre_start( p, sep)) {
             sep = __LIMPET_REPORT_SEP;
         }
 
         __limpet_start_one(p);
+
         __limpet_post_start(p);
 
         /*

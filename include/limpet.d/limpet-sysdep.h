@@ -37,11 +37,17 @@
  * timeout - Number of seconds to allow each test to run
  */
 struct __limpet_params {
-    unsigned max_jobs;
-    size_t n_runlist;
-    char **runlist;
-    float timeout;
+    unsigned    max_jobs;
+    size_t      n_runlist;
+    char        **runlist;
+    float       timeout;
+    bool        verbose;
 };
+
+/*
+ * Parsed parameter information
+ */
+struct __limpet_params __limpet_params __attribute((common));
 
 /*
  * Per-test information. This part is common to all implementations
@@ -54,13 +60,13 @@ struct __limpet_params {
  *  sysdep - System-dependent information
  */
 struct __limpet_test {
-    struct __limpet_test     *next;
-    struct __limpet_test     *done;
-    bool                        skipped;
-    const char *                name;
-    void                        (*func)(void);
-    struct __limpet_params   *params;
-    struct __limpet_sysdep   sysdep;
+    struct __limpet_test    *next;
+    struct __limpet_test    *done;
+    bool                    skipped;
+    const char *            name;
+    void                    (*func)(void);
+    struct __limpet_params  *params;
+    struct __limpet_sysdep  sysdep;
 };
 
 /*
@@ -99,6 +105,7 @@ static void __limpet_cond_wait(struct __limpet_cond *cond,
 
 static const char *__limpet_get_maxjobs(void);
 static const char *__limpet_get_runlist(void);
+static const char *__limpet_get_verbose(void);
 static const char *__limpet_get_timeout(void);
 
 static void __limpet_parse_done(void);

@@ -78,6 +78,9 @@ LIMPET_MAX_JOBS When parallel execution is supported, this limits the
 
 LIMPET_RUNLIST  A space-separated list of tests to run.
 
+LIMPET_VERBOSE  If "true", prints the test log, if "false" it doesn't. The
+                default is "false".
+
 LIMPET_TIMEOUT  A floating point value specifying the amount of time
                 a test can be run before being killed. The default is
                 30 seconds. A value of zero means tests will not be
@@ -102,6 +105,13 @@ examples in limpet.d/limpet-linux.h and
 limpet.d/limpet-single-threaded-linux.h should be straight forward, but the
 author will be happy to incorporate suggests and, especially, actual written
 documentation, in this code for the future.
+
+Possible Future Enhancements
+============================
+o   Add a flag that skips running the tests and continues to main(). This
+    allows the code to be the same for testing a production and thus is
+    closer to the "Test as you fly, fly as you test" philosophy. Of course,
+    if you forget the flag, all you get is tests. So, not sure about this.
 --
 David VomLehn
 dvomlehn@gmail.com

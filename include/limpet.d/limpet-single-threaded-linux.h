@@ -5,8 +5,18 @@
 #ifndef _LIMPET_SINGLE_THREADED_LINUX_H_
 #define _LIMPET_SINGLE_THREADED_LINUX_H_
 
+#include <fcntl.h>
+
+/*
+ * System-dependent definitions
+ * pid - Process ID of forked process
+ * tty - output file descriptor for the child
+ * timedout - true if the process timed out
+ * exit_status - child's exit status
+ */
 struct __limpet_sysdep {
     pid_t   pid;
+    int     tty;
     bool    timedout;
     int     exit_status;
 };
@@ -15,6 +25,7 @@ struct __limpet_sysdep {
 
 #define __LIMPET_SYSDEP_INIT { \
         .pid = -1, \
+        .tty = -1, \
         .timedout = false, \
         .exit_status = -1, \
     }
@@ -100,6 +111,53 @@ static void __limpet_wait(struct __limpet_test *test) {
 }
 
 /*
+ * Set up the stdin file descriptor
+ */
+static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep)
+    __LIMPET_UNUSED;
+static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep)
+    __LIMPET_UNUSED;
+static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep)
+{
+    if (!__limpet_params.verbose) {
+        sysdep->tty = open("/dev/null", O_RDWR);
+
+        if (sysdep->tty == -1) {
+            __limpet_fail_errno("Unable to open /dev/null");
+        }
+    }
+}
+
+/*
+ * Running in the context of a test child process, set up a new test
+ * process
+ */
+static void __limpet_setup_one(struct __limpet_sysdep *sysdep)
+    __LIMPET_UNUSED;
+static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
+    if (!__limpet_params.verbose) {
+        if (dup2(sysdep->tty, 0) == -1) {
+            __limpet_fail_errno("dup2(%d, %d)", sysdep->tty, 0);
+        }
+
+        if (close(sysdep->tty) == -1) {
+            __limpet_fail_errno("close(tty %d)", sysdep->tty);
+        }
+
+        /*
+         * Set up stdout and stderr
+         */
+        if (dup2(0, 1) == -1) {
+            __limpet_fail_errno("dup2(%d, %d)", 0, 1);
+        }
+        if (dup2(0, 2) == -1) {
+            __limpet_fail_errno("dup2(%d, %d)", 0, 2);
+        }
+    }
+}
+    
+
+/*
  * Run the test as a subprocess
  */
 static void __limpet_start_one(struct __limpet_test *test)
@@ -118,6 +176,8 @@ static void __limpet_start_one(struct __limpet_test *test) {
         break;
 
     case 0:
+        __limpet_make_std_fd(&test->sysdep);
+        __limpet_setup_one(&test->sysdep);
         (*test->func)();
         __limpet_exit(false);
         break;

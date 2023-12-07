@@ -85,6 +85,14 @@ static const char *__limpet_get_timeout(void) {
 #endif
 }
 
+static const char *__limpet_get_verbose(void) {
+#ifdef LIMPET_VERBOSE
+    return __LIMPET_STRINGIFY(LIMPET_VERBOSE);
+#else
+    return NULL;
+#endif
+}
+
 static void __limpet_parse_done() {
 }
 
@@ -102,6 +110,7 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
 static bool __limpet_pre_start(struct __limpet_test *test,
     const char *sep) {
     __limpet_print_test_header(test, sep);
+
     return true;
 }
 

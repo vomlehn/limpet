@@ -29,8 +29,10 @@ case $# in
     ;;
 esac
 
+SCRIPTS="$(dirname "$0")"
+
 if [ -v RUNLIST ]; then
-    print-testinfo.sh "$VERSION" "$RUNLIST"
+    $SCRIPTS/print-testinfo.sh "$VERSION" "$RUNLIST"
 else
-    print-testinfo.sh "$VERSION"
+    $SCRIPTS/print-testinfo.sh "$VERSION"
 fi | sed 's/.*://'
