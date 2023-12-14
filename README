@@ -10,7 +10,11 @@ with C and C++. Actual test cases are in the section demarcated by
 #ifdef LIMPET...#endif:
 
     /*
-     * Test for limpet
+     * Example use of Limpet included in README file
+     *
+     * To compile, use:
+     *
+     *      cc  -Iinclude -DLIMPET=LIMPET_LINUX -o simple test/simple.cc
      */
 
     #include <stdio.h>
@@ -26,24 +30,21 @@ with C and C++. Actual test cases are in the section demarcated by
 
     #ifdef LIMPET
     LIMPET_TEST(simple_good) {
-        printf("This is printed by test simple_good\n");
+        printf("doc-example: This is printed by test simple_good\n");
         limpet_assert_eq(0, 0);
     }
 
     LIMPET_TEST(simple_bad) {
-        printf("This is printed by test simple_bad\n");
-        limpet_assert_eq(0, 1);
+        printf("doc-example: This is printed by test simple_bad\n");
+        limpet_assert_ne(0, 0);
     }
 
     #endif /* LIMPET */
 
-To compile, use:
-
-    cc  -Iinclude -DLIMPET=LIMPET_LINUX -o simple test/simple.cc
-
-where include should be replaced by the relative or absolute path the
-the limpet/include directory. This directory has limpet,h and a
-subdirectory, limpet.d, contain other header files used by limpet..
+where the include in the compile command should be replaced by the
+relative or absolute path of the the limpet/include directory. This
+directory has limpet.h and a subdirectory, limpet.d, containing other
+header files used by limpet.
 
 To run, use:
 
@@ -60,14 +61,18 @@ to a value to indicate which version of Limpet is to be build. There
 are presently two possibilities:
 
     LIMPET_LINUX                    Use this for Linux testing when running
-                                    multiple tests in parallel.
+                                    multiple tests in parallel. Configuration
+                                    variables are supplied on the command
+                                    line when running the test.
 
     LIMPET_SINGLE_THREADED_LINUX    This is also works on Linux, but runs
                                     the tests in a single threaded fashion.
                                     It's not really intend for production use
                                     but rather as an example of how Limpet can
                                     be used on single thread systems, such as
-                                    simple embedded systems.
+                                    simple embedded systems. Configuration
+                                    variables are supplied to the compiler
+                                    via the -D option.
 
 Configuration Variables
 =======================
@@ -88,10 +93,10 @@ LIMPET_TIMEOUT  A floating point value specifying the amount of time
 
 Values for configuration variables may be set in two ways:
 
-1.  If the platform supported takes envirnment variables, variables with
+1.  If the platform used supports envirnment variables, variables with
     the above names can be set
 
-2.  If the platform doesn't take environment variables, the values can
+2.  If the platform doesn't support environment variables, the values can
     be specified on the compiler command line, e.g. -DLIMPET_TIMEOUT=2.5
     The single-threaded platform noted above uses this method.
 
@@ -101,17 +106,23 @@ Limpet is comprised of code that uses various interfaces to abstract the
 underlying kernel or real time system. The limpet.d/limpet-sysdep.h file
 lists interfaces that must be implemented, with some additional interfaces
 in limpet.d/limpet-single-threaded.h. Following the system-dependent
-examples in limpet.d/limpet-linux.h and
-limpet.d/limpet-single-threaded-linux.h should be straight forward, but the
-author will be happy to incorporate suggests and, especially, actual written
-documentation, in this code for the future.
+examples in limpet-linux.h and limpet-single-threaded-linux.h n the
+limpet.d directory should be straight forward, but the author will be
+happy to incorporate useful suggestions and, especially, proposed written
+documentation, in this package for the future.
 
 Possible Future Enhancements
 ============================
-o   Add a flag that skips running the tests and continues to main(). This
-    allows the code to be the same for testing a production and thus is
-    closer to the "Test as you fly, fly as you test" philosophy. Of course,
-    if you forget the flag, all you get is tests. So, not sure about this.
+o   Add a flag or flags that select modes of execution: 
+
+    1.  All tests are run and main() is not called. This is the default.
+    2.  Each test exits immediately without doing anything and main()
+        is called normally. The tests can be run manually by calling
+        limpet_runtests(), if desired.
+
+        In this way, the same executable can be used in in testing mode
+        and in production mode. This supports the "test as you fky, fly
+        as you test" philosophy.
 --
 David VomLehn
 dvomlehn@gmail.com
