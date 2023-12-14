@@ -36,6 +36,7 @@ esac
 # Note that VERBOSE should be set to true for everything that is not
 # specifically testing the VERBOSE functionality
 test_infos=( "LIMPET_VERBOSE=true":compare \
+    doc-example \
     "LIMPET_VERBOSE=false":not-verbose \
     default-verbose \
     "LIMPET_VERBOSE=true":signal \

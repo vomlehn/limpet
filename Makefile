@@ -16,6 +16,8 @@ SCRIPTS = test/scripts
 PATH := $(SCRIPTS):$(PATH)
 export PATH
 
+SETPATH = export PATH=$(PATH)
+
 # Be sure bin and src directories are created
 $(shell mkdir -p $(BIN) $(SRC) $(ACTUAL))
 
@@ -53,16 +55,16 @@ INCS := include/limpet.h include/limpet-sysdep.h
 INCS += $(INCS_$(VERSION))
 
 # Produce a list of file names for test executables
-TEST_BINS = $(sort $(shell $(SCRIPTS)/print-testnames.sh $(VERSION) | \
+TEST_BINS = $(sort $(shell $(SETPATH); print-testnames.sh $(VERSION) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
 # Come up with a list of just the test file names, without any preceeding
 # directory name
-TEST_NAME_LIST = $(shell $(SCRIPTS)/print-testnames.sh $(VERSION))
+TEST_NAME_LIST = $(shell $(SETPATH); print-testnames.sh $(VERSION))
 
 # Define test-specific flags
 define print_cppflags
-print-cppflags.sh $(VERSION) $(1)
+$(SETPATH); print-cppflags.sh $(VERSION) $(1)
 endef
 
 .PHONY: test
@@ -82,6 +84,13 @@ $(BIN)/default-verbose: $(BIN)/default-verbose.o $(LIMPET_HDRS)
 
 $(BIN)/default-verbose.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
 	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,default-verbose)) -c \
+	    -o $@ $(filter-out %.h,$^)
+
+$(BIN)/doc-example: $(BIN)/doc-example.o $(LIMPET_HDRS)
+	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
+
+$(BIN)/doc-example.o: $(SRC)/simple.$(SFX) $(LIMPET_HDRS)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,doc-example)) -c \
 	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/maxjobs: $(BIN)/maxjobs.o $(LIMPET_HDRS)
