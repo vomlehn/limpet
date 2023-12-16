@@ -1,10 +1,16 @@
 #!/bin/bash
 
 set -eu
-usage='echo "usage: $0 out-dir \"test-list\"" 1>&2; exit 1'
+usage='echo "usage: $0 -v out-dir \"test-list\"" 1>&2; exit 1'
 
-while getopts "" OPT "$@"; do
+verbose=false
+
+while getopts "v" OPT "$@"; do
     case "$OPT" in
+    v)
+        verbose=true
+        ;;
+
     *)
         eval $usage
         ;;
@@ -39,17 +45,25 @@ for test in $TESTS; do
             echo "File $file was not expected"
             errors=$((errors + 1))
         else
-            echo "Compare actual output $actual with expected output"
             set +e
-            diff $canonical $actual
+            if $verbose; then
+                diff $canonical $actual
+            else
+                diff $canonical $actual >/dev/null
+            fi
             status=$?
             set -e
             if [ $status -ne 0 ]; then
+                echo "Test $file failed. See $actual"
                 errors=$((errors + 1))
+            else
+                echo "Test $test passed"
             fi
         fi
     done
 done
+
+echo "Output in $ACTUAL"
 
 if [ $errors -eq 0 ]; then
     echo "Tests PASSED"
