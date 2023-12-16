@@ -62,7 +62,7 @@ for test in "${tests[@]}"; do
         sed -e "s/^[^:]*$/$BIN\/&/" \
         -e "s/^\(.*\):/\1 $BIN\//g" \
         -e 's/:/ /g')"
-    running_string="Test comand $TEST_CMD"
+    running_string="Running '$TEST_CMD'"
     echo "$running_string"
     eval "$TEST_CMD | parse-test.sh $TEST_NAME $ACTUAL"
     SEP=""
