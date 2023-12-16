@@ -1,4 +1,5 @@
 > vvvvvvvvvvvvvvvvvv
+Assertion '(0) < (0)' failed: line 75 file src/assert.cc
 This is printed by test lt_failure
 > ^^^^^^^^^^^^^^^^^^
 > Test complete: lt_failure exit code 1: FAILURE

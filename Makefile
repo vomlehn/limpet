@@ -73,11 +73,11 @@ test: $(TEST_BINS)
 	run-tests $(VERSION) $(ACTUAL) $(BIN) "$(TEST_NAME_LIST)"
 	check-tests $(ACTUAL) "$(TEST_NAME_LIST)"
 
-$(BIN)/compare: $(BIN)/compare.o $(LIMPET_HDRS)
+$(BIN)/assert: $(BIN)/assert.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
 
-$(BIN)/compare.o: $(SRC)/compare.$(SFX) $(LIMPET_HDRS)
-	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,compare)) -c \
+$(BIN)/assert.o: $(SRC)/assert.$(SFX) $(LIMPET_HDRS)
+	$(CC) $(CPPFLAGS) $(shell $(call print_cppflags,assert)) -c \
 	    -o $@ $(filter-out %.h,$^)
 
 $(BIN)/default-verbose: $(BIN)/default-verbose.o $(LIMPET_HDRS)

@@ -1,4 +1,5 @@
 > vvvvvvvvvvvvvvvvvv
+Assertion '(0) >= (1)' failed: line 65 file src/assert.cc
 This is printed by test ge_failure
 > ^^^^^^^^^^^^^^^^^^
 > Test complete: ge_failure exit code 1: FAILURE
