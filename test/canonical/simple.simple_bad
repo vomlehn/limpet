@@ -1,4 +1,4 @@
-> Log for simple_bad
+> vvvvvvvvvvvvvvvvvv
 This is printed by test simple_bad
+> ^^^^^^^^^^^^^^^^^^
 > Test complete: simple_bad exit code 1: FAILURE
----

@@ -1,4 +1,4 @@
-> Log for le_failure
+> vvvvvvvvvvvvvvvvvv
 This is printed by test le_failure
+> ^^^^^^^^^^^^^^^^^^
 > Test complete: le_failure exit code 1: FAILURE
----

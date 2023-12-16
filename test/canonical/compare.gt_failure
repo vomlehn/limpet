@@ -1,4 +1,4 @@
-> Log for gt_failure
+> vvvvvvvvvvvvvvvvvv
 This is printed by test gt_failure
+> ^^^^^^^^^^^^^^^^^^
 > Test complete: gt_failure exit code 1: FAILURE
----

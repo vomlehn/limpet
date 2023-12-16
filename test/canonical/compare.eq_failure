@@ -1,4 +1,4 @@
-> Log for eq_failure
+> vvvvvvvvvvvvvvvvvv
 This is printed by test eq_failure
+> ^^^^^^^^^^^^^^^^^^
 > Test complete: eq_failure exit code 1: FAILURE
----

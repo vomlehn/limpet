@@ -1,4 +1,4 @@
-> Log for eq_success
+> vvvvvvvvvvvvvvvvvv
 This is printed by test eq_success
+> ^^^^^^^^^^^^^^^^^^
 > Test complete: eq_success exit code 0: SUCCESS
----

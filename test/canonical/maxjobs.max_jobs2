@@ -1,7 +1,7 @@
-> Log for max_jobs2
+> vvvvvvvvvvvvvvvvv
 This is printed by test max_jobs2
 One message will print immediately. As many more as allowed
 by MAX_JOBS will also print immediately. Then other messages
 will print after a delay of 2 seconds
+> ^^^^^^^^^^^^^^^^^
 > Test complete: max_jobs2 exit code 0: SUCCESS
----

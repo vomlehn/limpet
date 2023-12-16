@@ -1,5 +1,5 @@
-> Log for skip1
+> vvvvvvvvvvvvv
 This is printed by test skip1
 You should see this message
+> ^^^^^^^^^^^^^
 > Test complete: skip1 exit code 0: SUCCESS
----
