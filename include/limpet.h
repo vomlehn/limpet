@@ -73,18 +73,27 @@
     }                                                       \
     void testname(void)
 
+#define __limpet_assert_failed(assertion) \
+    __limpet_fail("Assertion '%s' failed: line %u file %s\n", \
+        #assertion, __LINE__, __FILE__)
+#define limpet_assert(expr) \
+    do { if (!(expr)) __limpet_assert_failed(expr); } while (0)
 #define limpet_assert_eq(a, b)    \
-    do { if (!((a) == (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) == (b))) \
+        __limpet_assert_failed((a) == (b)); } while (0)
 #define limpet_assert_ne(a, b)    \
-    do { if (!((a) != (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) != (b))) \
+        __limpet_assert_failed((a) != (b)); } while (0)
 #define limpet_assert_gt(a, b)    \
-    do { if (!((a) > (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) > (b))) __limpet_assert_failed((a) > (b)); } while (0)
 #define limpet_assert_ge(a, b)    \
-    do { if (!((a) >= (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) >= (b))) \
+        __limpet_assert_failed((a) >= (b)); } while (0)
 #define limpet_assert_lt(a, b)    \
-    do { if (!((a) < (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) < (b))) __limpet_assert_failed((a) < (b)); } while (0)
 #define limpet_assert_le(a, b)    \
-    do { if (!((a) <= (b))) __limpet_exit(true); } while (0)
+    do { if (!((a) <= (b))) \
+        __limpet_assert_failed((a) <= (b)); } while (0)
     
 /*
  * These definitions are intended for internal use by the limpet code
