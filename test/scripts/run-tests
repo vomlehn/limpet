@@ -64,6 +64,6 @@ for test in "${tests[@]}"; do
         -e 's/:/ /g')"
     running_string="Running '$TEST_CMD'"
     echo "$running_string"
-    eval "$TEST_CMD | parse-test $TEST_NAME $ACTUAL"
+    eval "$TEST_CMD 2>&1 | parse-test $TEST_NAME $ACTUAL"
     SEP=""
 done
