@@ -30,9 +30,9 @@ case $# in
 esac
 
 if [ -v RUNLIST ]; then
-    print-testinfo.sh "$VERSION" "$RUNLIST"
+    print-testinfo "$VERSION" "$RUNLIST"
 else
-    print-testinfo.sh "$VERSION"
+    print-testinfo "$VERSION"
 fi | while read testinfo; do
     defs="$(echo "$testinfo" | sed -e 's/^[^:]*$//' -e 's/:[^:]*$//')"
     if [ -n "$defs" ]; then

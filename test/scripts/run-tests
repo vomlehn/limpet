@@ -2,7 +2,7 @@
 
 set -eu
 
-source "$(dirname "$0")/test-common.sh"
+source "$(dirname "$0")/test-common"
 
 usage='echo "usage: $0 version out-dir bin-dir \"test-list\"" 1>&2; exit 1'
 
@@ -45,9 +45,9 @@ trap "set -x; cleanup; exit 1" TERM HUP
 tmpfile="$(mktemp)"
 
 # Write the test info into a file. It would be nice to pipe from
-# print-testinfo.sh but that won't propagate tests back to this shell
+# print-testinfo but that won't propagate tests back to this shell
 declare -a tests
-print-testinfo.sh $VERSION "$RUNLIST" >$tmpfile
+print-testinfo $VERSION "$RUNLIST" >$tmpfile
 while read test; do
     tests+=("$test")
 done <$tmpfile
@@ -64,6 +64,6 @@ for test in "${tests[@]}"; do
         -e 's/:/ /g')"
     running_string="Running '$TEST_CMD'"
     echo "$running_string"
-    eval "$TEST_CMD | parse-test.sh $TEST_NAME $ACTUAL"
+    eval "$TEST_CMD | parse-test $TEST_NAME $ACTUAL"
     SEP=""
 done

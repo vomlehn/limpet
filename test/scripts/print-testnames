@@ -32,7 +32,7 @@ esac
 SCRIPTS="$(dirname "$0")"
 
 if [ -v RUNLIST ]; then
-    $SCRIPTS/print-testinfo.sh "$VERSION" "$RUNLIST"
+    $SCRIPTS/print-testinfo "$VERSION" "$RUNLIST"
 else
-    $SCRIPTS/print-testinfo.sh "$VERSION"
+    $SCRIPTS/print-testinfo "$VERSION"
 fi | sed 's/.*://'

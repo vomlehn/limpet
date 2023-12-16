@@ -1,10 +1,10 @@
 # File with comment definitions. This is intended to be used with
 # the bash source command:
 #
-#   source "$(dirname "$0")/test-common.sh
+#   source "$(dirname "$0")/test-common
 
 # Read an array of testinfo information. We have to use a temporary file
-# because just piping the output of print-testinfo.sh runs a subshell,
+# because just piping the output of print-testinfo runs a subshell,
 # which doesn't propagate the value of the resulting array
 declare -a testinfo_output
 testinfo()

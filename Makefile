@@ -56,22 +56,22 @@ INCS += $(INCS_$(VERSION))
 
 # Produce a list of file names for test executables
 TEST_BINS = \
-    $(sort $(shell $(SETPATH); print-testnames.sh $(VERSION) $(TESTS) | \
+    $(sort $(shell $(SETPATH); print-testnames $(VERSION) $(TESTS) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
 # Come up with a list of just the test file names, without any preceeding
 # directory name
-TEST_NAME_LIST = $(shell $(SETPATH); print-testnames.sh $(VERSION) $(TESTS))
+TEST_NAME_LIST = $(shell $(SETPATH); print-testnames $(VERSION) $(TESTS))
 
 # Define test-specific flags
 define print_cppflags
-$(SETPATH); print-cppflags.sh $(VERSION) $(1)
+$(SETPATH); print-cppflags $(VERSION) $(1)
 endef
 
 .PHONY: test
 test: $(TEST_BINS)
-	run-tests.sh $(VERSION) $(ACTUAL) $(BIN) "$(TEST_NAME_LIST)"
-	check-tests.sh $(ACTUAL) "$(TEST_NAME_LIST)"
+	run-tests $(VERSION) $(ACTUAL) $(BIN) "$(TEST_NAME_LIST)"
+	check-tests $(ACTUAL) "$(TEST_NAME_LIST)"
 
 $(BIN)/compare: $(BIN)/compare.o $(LIMPET_HDRS)
 	$(CC) -o $@ $(filter-out %.h,$^) $(LDFLAGS)
