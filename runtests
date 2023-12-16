@@ -24,11 +24,9 @@ fi
 #   TESTS="simple"
 # If this is blank, all tests will be run
 TESTS=${TESTS:-}
-echo "TESTS $TESTS"
 
 # Set this to the versions of Limpet to run
 VERSIONS=${VERSIONS:-"LINUX SINGLE_THREADED_LINUX"}
-echo "VERSIONS $VERSIONS"
 
 if [ -z "$TESTS" ]; then
     TEST_VAR=
@@ -42,8 +40,9 @@ errors=0
 for version in $VERSIONS; do
     label="Running tests for version $version"
     printf "$sep"
-    echo "$version"
-    echo "$version" | sed -e 's/./=/g'
+    heading="Testing $version"
+    echo "$heading"
+    echo "$heading" | sed -e 's/./=/g'
     set +e
     make VERSION=$version clean
     make VERSION=$version $TEST_VAR
