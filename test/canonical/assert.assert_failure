@@ -1,0 +1,5 @@
+> vvvvvvvvvvvvvvvvvvvvvv
+Assertion '0' failed: line 25 file src/assert.cc
+This is printed by test assert_failure
+> ^^^^^^^^^^^^^^^^^^^^^^
+> Test complete: assert_failure exit code 1: FAILURE
