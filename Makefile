@@ -55,12 +55,13 @@ INCS := include/limpet.h include/limpet-sysdep.h
 INCS += $(INCS_$(VERSION))
 
 # Produce a list of file names for test executables
-TEST_BINS = $(sort $(shell $(SETPATH); print-testnames.sh $(VERSION) | \
+TEST_BINS = \
+    $(sort $(shell $(SETPATH); print-testnames.sh $(VERSION) $(TESTS) | \
 	sed -e 's/^[^:]*$$/$(BIN)\/&/' -e 's/^.*:/$(BIN)\//'))
 
 # Come up with a list of just the test file names, without any preceeding
 # directory name
-TEST_NAME_LIST = $(shell $(SETPATH); print-testnames.sh $(VERSION))
+TEST_NAME_LIST = $(shell $(SETPATH); print-testnames.sh $(VERSION) $(TESTS))
 
 # Define test-specific flags
 define print_cppflags
