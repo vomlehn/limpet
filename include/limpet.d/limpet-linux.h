@@ -515,15 +515,13 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
     ssize_t total = 0;
     bool last_was_cr;
 
+    if (!__limpet_params.verbose) {
+        return 1;
+    }
+
     if (lseek(test->sysdep.log_fd, 0, SEEK_SET) == (off_t) -1) {
         __limpet_fail_errno("lseek failed on fd %d", test->sysdep.log_fd);
     }
-
-    /*
-     * Before writing to stdout with the copy file function, we need to
-     * flush the stdout from stdio
-     */
-    fflush(stdout);
 
     last_was_cr = false;
 
@@ -531,20 +529,34 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
         zrc = read(test->sysdep.log_fd, buf, sizeof(buf))) {
         size_t i;
 
+        /*
+         * Convert carriage return-linefeed to a simple linefeed
+         */
         for (i = 0; i < (size_t)zrc; i++) {
             char c;
 
             c = buf[i];
 
-            if (c == '\r') {
+            switch (c) {
+            case '\n':
+                if (last_was_cr) {
+                    putchar('\n');
+                    last_was_cr = false;
+                }
+                break;
+
+            case '\r':
                 if (last_was_cr) {
                     putchar('\r');
                 } else {
                     last_was_cr = true;
                 }
-            } else {
+                break;
+
+            default:
                 putchar(c);
                 last_was_cr = false;
+                break;
             }
         }
 
@@ -589,13 +601,13 @@ static void *__limpet_run_one(void *arg) {
         break;
 
     default:
-
         /*
          * Set the process ID and let the wait begin
          */
         if (close(test->sysdep.tty) == -1) {
             __limpet_fail_errno("close(test->tty) failed");
         }
+        test->sysdep.tty = -1;
         test->sysdep.pid = pid;
         break;
     }
@@ -643,27 +655,36 @@ static void __limpet_cleanup_test(struct __limpet_test *test) {
     }
 }
 
-static bool __limpet_pre_start(struct __limpet_test *test,
+/*
+ * Can be used to print a string before generating an unstored log file, i.e.
+ * one that goes straight to stdout.
+ *
+ * Returns: the number of characters printed, zero in this case
+ */
+static int __limpet_pre_start(struct __limpet_test *test,
     const char *sep) {
-    return false;
+    return 0;
 }
 
-static void __limpet_post_start(struct __limpet_test *test) {
+static void __limpet_post_start(struct __limpet_test *test, int n) {
 }
 
 /*
- * Print a string right before the test starts
+ * Can be used to print a string before dumping a stored log file to stdout.
+ *
+ * Returns: the number of characters printed.
  */
-static bool __limpet_pre_stored(struct __limpet_test *test,
+static int __limpet_pre_stored(struct __limpet_test *test,
     const char *sep) {
+    int n;
 
-    __limpet_print_test_header(test, sep);
+    n = __limpet_print_test_header(test, sep);
 
-    return true;
+    return n;
 }
 
-static void __limpet_post_stored(struct __limpet_test *test) {
+static void __limpet_post_stored(struct __limpet_test *test, int n) {
 
-    __limpet_print_test_trailer(test);
+    __limpet_print_test_trailer(test, n);
 }
 #endif /* _LEAVEIN_TEST_LINUX_H_ */

@@ -152,11 +152,14 @@ static void __limpet_warn(const char *fmt, ...) {
     va_end(ap);
 }
 
-static void __limpet_printf(const char *fmt, ...) {
+static int __limpet_printf(const char *fmt, ...) {
     va_list ap;
+    int n;
 
     va_start(ap, fmt);  
-    vprintf(fmt, ap);
+    n = vprintf(fmt, ap);
     va_end(ap);
+
+    return n;
 }
 #endif /* _LIMPET_POSIX_H_ */

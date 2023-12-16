@@ -105,24 +105,34 @@ static ssize_t __limpet_dump_stored_log(struct __limpet_test *test) {
 }
 
 /*
- * Print a string right before the test starts
+ * Can be used to print a string before generating an unstored log file, i.e.
+ * one that goes straight to stdout.
+ *
+ * Returns: the number of characters printed.
  */
-static bool __limpet_pre_start(struct __limpet_test *test,
+static int __limpet_pre_start(struct __limpet_test *test,
     const char *sep) {
-    __limpet_print_test_header(test, sep);
+    int n;
 
-    return true;
+    n = __limpet_print_test_header(test, sep);
+
+    return n;
 }
 
-static void __limpet_post_start(struct __limpet_test *test) {
-    __limpet_print_test_trailer(test);
+static void __limpet_post_start(struct __limpet_test *test, int n) {
+    __limpet_print_test_trailer(test, n);
 }
 
-static bool __limpet_pre_stored(struct __limpet_test *test,
+/*
+ * Can be used to print a string before dumping a stored log file to stdout.
+ *
+ * Returns: the number of characters printed, zero in this case
+ */
+static int __limpet_pre_stored(struct __limpet_test *test,
     const char *sep) {
-    return false;
+    return 0;
 }
 
-static void __limpet_post_stored(struct __limpet_test *test) {
+static void __limpet_post_stored(struct __limpet_test *test, int n) {
 }
 #endif /* _LIMPET_SINGLE_THREADED_H_ */

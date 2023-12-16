@@ -218,6 +218,7 @@ static bool __limpet_parse_params(struct __limpet_params *params) {
     }
 
     verbose_env = __limpet_get_verbose();
+
     if (verbose_env != NULL) {
         if (strcmp(verbose_env, "true") == 0) {
             params->verbose = true;
@@ -390,18 +391,47 @@ static bool __limpet_must_run(const char *name) {
 }
 
 /*
- * Call before printing each test's information
+ * Print an n character line starting with __LIMPET_MARKER, followed by
+ * a given character
+ *
+ * c - character to print
+ * n - number of times to print it
  */
-static void __limpet_print_test_header(struct __limpet_test *test,
+static void __limpet_print_rep(char c, int n) {
+    __limpet_printf("%s", __LIMPET_MARKER);
+    n -= strlen(__LIMPET_MARKER);
+
+    while (n-- != 0) {
+        __limpet_printf("%c", c);
+    }
+
+    __limpet_printf("\n");
+}
+
+/*
+ * Call before printing each test's information
+ *
+ * Returns: the number of characters printed, not counting the newline
+ */
+static int __limpet_print_test_header(struct __limpet_test *test,
     const char *sep) {
+    int n;
+
     __limpet_printf("%s", sep);
-    __limpet_printf("%sLog for %s\n", __LIMPET_MARKER, test->name);
+    n = __limpet_printf("%sLog for %s\n", __LIMPET_MARKER, test->name);
+    n -= 1;
+
+    __limpet_print_rep('v', n);
+
+    return n;
 }
 
 /*
  * Call after printing each test
  */
-static void __limpet_print_test_trailer(struct __limpet_test *test) {
+static void __limpet_print_test_trailer(struct __limpet_test *test, int n) {
+
+    __limpet_print_rep('^', n);
     __limpet_printf("%sTest complete: %s ", __LIMPET_MARKER, test->name);
     __limpet_print_status(test);
     __limpet_printf("\n");
@@ -413,7 +443,7 @@ static void __limpet_print_test_trailer(struct __limpet_test *test) {
 static void __limpet_print_final_trailer(const char *sep) {
     
     __limpet_printf("%s", sep);
-    printf("%sRan %u tests: %u passed %u failed %u skipped\n",
+    __limpet_printf("%sRan %u tests: %u passed %u failed %u skipped\n",
         __LIMPET_MARKER, __limpet_started, __limpet_passed, __limpet_failed,
         __limpet_skipped);
 }
@@ -429,15 +459,16 @@ static bool __limpet_report_on_done(size_t *reported, const char *sep) {
 
     for (; *reported != __limpet_get_started(); (*reported)++) {
         struct __limpet_test *p;
+        int n;
 
         p = __limpet_dequeue_done();
         __limpet_cleanup_test(p);
 
-        printed_something |= __limpet_pre_stored(p, sep);
+        n = __limpet_pre_stored(p, sep);
+        printed_something |= (n != 0);
 
         __limpet_dump_stored_log(p);
-
-        __limpet_post_stored(p);
+        __limpet_post_stored(p, n);
     }
 
     return printed_something;
@@ -456,7 +487,7 @@ static void __limpet_run(void) {
     const char *sep;
     size_t reported;
 
-printf("Running limpet\n");
+    __limpet_printf("Running limpet\n");
     __limpet_mutex_init(&__limpet_statistics_mutex);
     __limpet_cond_init(&__limpet_statistics_cond);
     __limpet_parse_params(&__limpet_params);
@@ -466,6 +497,8 @@ printf("Running limpet\n");
 
     for (p = __limpet_first_test(); p != NULL;
         p = __limpet_next_test(p)) {
+        int n;
+
         if (!__limpet_must_run(p->name)) {
             p->skipped = true;
             __limpet_inc_skipped();
@@ -482,13 +515,14 @@ printf("Running limpet\n");
 
         __limpet_inc_started();
 
-        if (__limpet_pre_start( p, sep)) {
+        n = __limpet_pre_start( p, sep);
+        if (n != 0) {
             sep = __LIMPET_REPORT_SEP;
         }
 
         __limpet_start_one(p);
 
-        __limpet_post_start(p);
+        __limpet_post_start(p, n);
 
         /*
          * Keep resource usage to a minimum by doing reporting here. It

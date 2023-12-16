@@ -90,7 +90,7 @@ static void __limpet_enqueue_done(struct __limpet_test *test);
 static void __limpet_exit(bool is_error) __attribute((noreturn));
 static void __limpet_fail(const char *fmt, ...) __attribute((noreturn));
 static void __limpet_warn(const char *fmt, ...);
-static void __limpet_printf(const char *fmt, ...);
+static int __limpet_printf(const char *fmt, ...);
 
 struct __limpet_mutex;
 static void __limpet_mutex_init(struct __limpet_mutex *mutex);
@@ -119,21 +119,21 @@ static void __limpet_print_status(struct __limpet_test *test);
  * Called before and after starting a test. If single threaded, log output
  * will be printed directly and will appear between the calls
  */
-static bool __limpet_pre_start(struct __limpet_test *test, const char *sep);
-static void __limpet_post_start(struct __limpet_test *test);
+static int __limpet_pre_start(struct __limpet_test *test, const char *sep);
+static void __limpet_post_start(struct __limpet_test *test, int n);
 
 /*
  * Called before and after printing stored log data. The log data will be
  * dumped between these
  */
-static bool __limpet_pre_stored(struct __limpet_test *test,
+static int __limpet_pre_stored(struct __limpet_test *test,
     const char *sep);
-static void __limpet_post_stored(struct __limpet_test *test);
+static void __limpet_post_stored(struct __limpet_test *test, int n);
 
 /*
  * Forward definitions
  */
-static void __limpet_print_test_header(struct __limpet_test *test,
+static int  __limpet_print_test_header(struct __limpet_test *test,
     const char *sep);
-static void __limpet_print_test_trailer(struct __limpet_test *test);
+static void __limpet_print_test_trailer(struct __limpet_test *test, int n);
 #endif /* __LIMPET_SYSDEP_H_ */
