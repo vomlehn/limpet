@@ -264,11 +264,11 @@ static bool __limpet_thread_setup(struct __limpet_test *test) {
 
 /*
  * Running in the context of a test child process, set up a new test
- * process
+ * process. 
  */
-static void __limpet_setup_one(struct __limpet_sysdep *sysdep)
+static void __limpet_setup_std_fds(struct __limpet_sysdep *sysdep)
     __LIMPET_UNUSED;
-static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
+static void __limpet_setup_std_fds(struct __limpet_sysdep *sysdep) {
     /*
      * We no longer need to do anything with the log file or raw
      * raw pseudoterminal file descriptors
@@ -595,7 +595,7 @@ static void *__limpet_run_one(void *arg) {
         break;
 
     case 0:
-        __limpet_setup_one(&test->sysdep);
+        __limpet_setup_std_fds(&test->sysdep);
         (*test->func)();
         __limpet_exit(false);
         break;

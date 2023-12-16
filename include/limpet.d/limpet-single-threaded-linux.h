@@ -132,9 +132,13 @@ static void __limpet_make_std_fd(struct __limpet_sysdep *sysdep)
  * Running in the context of a test child process, set up a new test
  * process
  */
-static void __limpet_setup_one(struct __limpet_sysdep *sysdep)
+static void __limpet_setup_std_fds(struct __limpet_sysdep *sysdep)
     __LIMPET_UNUSED;
-static void __limpet_setup_one(struct __limpet_sysdep *sysdep) {
+static void __limpet_setup_std_fds(struct __limpet_sysdep *sysdep) {
+    /*
+     * If we're not being verbose, we opened sysdep->tty as /dev/null and
+     * need to make file descriptors 0, 1, and 2 the same
+     */
     if (!__limpet_params.verbose) {
         if (dup2(sysdep->tty, 0) == -1) {
             __limpet_fail_errno("dup2(%d, %d)", sysdep->tty, 0);
@@ -177,7 +181,7 @@ static void __limpet_start_one(struct __limpet_test *test) {
 
     case 0:
         __limpet_make_std_fd(&test->sysdep);
-        __limpet_setup_one(&test->sysdep);
+        __limpet_setup_std_fds(&test->sysdep);
         (*test->func)();
         __limpet_exit(false);
         break;
